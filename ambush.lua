@@ -1,6 +1,48 @@
 
-Ambush = {} -- table to hold the functions.
+require("movement") -- for movement functions
+
+             Ambush = {} -- table to hold the functions.
 AMBUSH_QUEUED_TABLE = {} -- table to hold monsters that are queued to attack.
+
+-- add more when you find them
+-- 7074 and 7073 are maybes, try fighting them and see if they're too hard
+-- 11141 on thin ice
+Ambush.BANNED_CREATURE_IDS = { 17887, 19416, 2673,  3569,  16422, 16423,
+                               16437, 16438, 17206, 1946,  5893,  4789,
+                               5894,  7050,  7067,  7310,  7849,  5723,
+                               11876, 17207, 2794,  11560, 11195, 13736,
+                               7767,  6388,  14638, 14639, 14603, 14604,
+                               14640, 8608,  1800,  1801,  4476,  22408,
+                               13022, 13279, 7149,  10940, 10943, 14467,
+                               28654, 28768, 10387, 10836, 11076, 18978,
+                               10479, 10482, 11078, 19136, 14385, 16141,
+                               16298, 16299, 16043, 20145, 20496, 22461,
+                               16992, 17399, 17477, 19016, 16939, 20680,
+                               21040, 20498, 20918, 21233, 21817, 21820,
+                               21821, 19493, 19494, 19757, 19760, 19966,
+                               19971, 20480, 20927, 20983, 22025, 25296,
+                               19759, 21778, 21779, 25382, 26224, 18605,
+                               18606, 19967, 20310, 20311, 20312, 20313,
+                               20320, 20321, 20323, 20643, 20655, 21531,
+                               21552, 21554, 21555, 21646, 21916, 22009,
+                               22201, 22202, 22286, 22289, 23100, 23386,
+                               24564, 24597, 24598, 24599, 24600, 24602,
+                               24603, 24604, 24621, 24622, 24623, 24624,
+                               24625, 24626, 24627, 25766, 30763, 30773,
+                               18614, 20309, 20322, 20784, 20789, 22221,
+                               22327, 22392, 24029, 24790, 26045, 26225,
+                               27513, 25678, 25682, 26490, 26517, 26573,
+                               26966, 25712, 25716, 26232, 26518, 26526,
+                               26702, 26703, 26811, 26812, 27614, 27821,
+                               29117, 29118, 26872, 28750, 28006, 28170,
+                               28669, 28320, 28875, 28752, 30633, 26536,
+                               30053, 30432, 31812, 33499, 29775, 30055,
+                               30791, 30843, 30902, 30921, 30957, 30958,
+                               30960, 31042, 31141, 31274, 31321, 31325,
+                               31326, 31327, 31468, 31554, 31555, 31671,
+                               31681, 31692, 31798, 32161, 32767, 32769,
+                               33289
+                             }
 
 function Ambush.spawnAndAttackPlayer(player)
     local LEVEL = player:GetLevel()
@@ -71,47 +113,7 @@ end
 -- a while depending on how many banned creatures there are.
 function Ambush.isCreatureBanned(creatureId)
 
-    -- add more when you find them
-    -- 7074 and 7073 are maybes, try fighting them and see if they're too hard
-    -- 11141 on thin ice
-    local BANNED_CREATURE_IDS = { 17887, 19416, 2673,  3569,  16422, 16423,
-                                  16437, 16438, 17206, 1946,  5893,  4789,
-                                  5894,  7050,  7067,  7310,  7849,  5723,
-                                  11876, 17207, 2794,  11560, 11195, 13736,
-                                  7767,  6388,  14638, 14639, 14603, 14604,
-                                  14640, 8608,  1800,  1801,  4476,  22408,
-                                  13022, 13279, 7149,  10940, 10943, 14467,
-                                  28654, 28768, 10387, 10836, 11076, 18978,
-                                  10479, 10482, 11078, 19136, 14385, 16141,
-                                  16298, 16299, 16043, 20145, 20496, 22461,
-                                  16992, 17399, 17477, 19016, 16939, 20680,
-                                  21040, 20498, 20918, 21233, 21817, 21820,
-                                  21821, 19493, 19494, 19757, 19760, 19966,
-                                  19971, 20480, 20927, 20983, 22025, 25296,
-                                  19759, 21778, 21779, 25382, 26224, 18605,
-                                  18606, 19967, 20310, 20311, 20312, 20313,
-                                  20320, 20321, 20323, 20643, 20655, 21531,
-                                  21552, 21554, 21555, 21646, 21916, 22009,
-                                  22201, 22202, 22286, 22289, 23100, 23386,
-                                  24564, 24597, 24598, 24599, 24600, 24602,
-                                  24603, 24604, 24621, 24622, 24623, 24624,
-                                  24625, 24626, 24627, 25766, 30763, 30773,
-                                  18614, 20309, 20322, 20784, 20789, 22221,
-                                  22327, 22392, 24029, 24790, 26045, 26225,
-                                  27513, 25678, 25682, 26490, 26517, 26573,
-                                  26966, 25712, 25716, 26232, 26518, 26526,
-                                  26702, 26703, 26811, 26812, 27614, 27821,
-                                  29117, 29118, 26872, 28750, 28006, 28170,
-                                  28669, 28320, 28875, 28752, 30633, 26536,
-                                  30053, 30432, 31812, 33499, 29775, 30055,
-                                  30791, 30843, 30902, 30921, 30957, 30958,
-                                  30960, 31042, 31141, 31274, 31321, 31325,
-                                  31326, 31327, 31468, 31554, 31555, 31671,
-                                  31681, 31692, 31798, 32161, 32767, 32769,
-                                  33289
-                                }
-
-    for _, id in ipairs(BANNED_CREATURE_IDS) do
+    for _, id in ipairs(Ambush.BANNED_CREATURE_IDS) do
         if creatureId == id then
             return true
         end
@@ -127,48 +129,22 @@ function Ambush.randomSpawn(player)
 
     print("Ambush! Watch out, here comes " .. creatureId .. "!")
 
-
     if creatureId ~= 0 then
-        local x, y, z, o = Ambush.getAmbushSpawnPosition(player)
+        local x, y, z, o = player:GetLocation()
+              x, y       = Movement.getPlusSpawnPosition(x, y, 45, 60)
+                    z    = player:GetMap():GetHeight(x, y)
+                       o = math.random(0, 6.28)
         local TEMPSUMMON_CORPSE_TIMED_DESPAWN = 6
         local TEMPSUMMON_DESPAWN_TIMER = 60 * 1000 -- 60 seconds
         local creature = player:SpawnCreature(creatureId, x, y, z, o,
                                               TEMPSUMMON_CORPSE_TIMED_DESPAWN,
                                               TEMPSUMMON_DESPAWN_TIMER)
         if creature then
-            x, y, z, o = Ambush.getAmbushAttackMovePosition(player)
+            x, y, z, o = player:GetLocation()
+            x, y       = x + math.random(), y + math.random()
             creature:MoveTo(math.random(0, 4294967295), x, y, z, o)
             creature:AttackStart(player)
         end
     end
-end
-
--- this should make a rough circle around the player
--- it's more like a plus shape but that's close enough
-function Ambush.getAmbushSpawnPosition(player)
-    local x, y, z, o = player:GetLocation()
-    randInt = math.random(1, 4)
-    if randInt == 1 then
-        x = x + math.random(45,60)
-        y = y + math.random(-45, 45)
-    elseif randInt == 2 then
-        x = x + math.random(-60, -45)
-        y = y + math.random(-45, 45)
-    elseif randInt == 3 then
-        x = x + math.random(-45, 45)
-        y = y + math.random(45, 60)
-    elseif randInt == 4 then
-        x = x + math.random(-45, 45)
-        y = y + math.random(-60, -45)
-    end
-
-    return x, y, z, o
-end
-
--- not sure how necessary this is
--- generates a random position that's pretty close to the player
-function Ambush.getAmbushAttackMovePosition(player)
-    local x, y, z, o = player:GetLocation()
-    return x + math.random(), y + math.random(), z, o
 end
 

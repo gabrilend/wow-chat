@@ -15,8 +15,8 @@ function PeriodicSpawnTravellers(eventID, delay, repeats)
 end
 
 function InitialLogin(event, player)
-    local DELAY_PERIODIC_SPAWNCREATURE = 30 * 1000 -- 30 seconds
-    local DELAY_PERIODIC_SPAWNTRAVELLER = 300 * 1000 -- 5 minutes
+    local DELAY_PERIODIC_SPAWNCREATURE = 300 * 1000 -- 30 seconds
+    local DELAY_PERIODIC_SPAWNTRAVELLER = 10 * 1000 -- 5 minutes
     player:RegisterEvent(PeriodicSpawnAmbush,
                          DELAY_PERIODIC_SPAWNCREATURE,
                          0)
