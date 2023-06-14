@@ -6,10 +6,6 @@ Travel = { players    = {},
 
 function Travel.addPlayer(_event, player)
     local playerID = player:GetGUIDLow()
-    print("Travel.addPlayer() called")
-    print(_event)
-    print(player)
-    print(Travel.players[playerID])
     if Travel.players[playerID] == nil then
         Travel.players[playerID] = { travellers = {},
                                      typeMask = 0,
@@ -19,9 +15,11 @@ function Travel.addPlayer(_event, player)
     else
         print("You're calling Travel.addPlayer() wrong.")
     end
-    if player.IsHorde == true then
+    if player:IsHorde() == true then
+        print("player is horde")
         Travel.players[playerID].playerFaction = 1
     else
+        print("player is alliance")
         Travel.players[playerID].playerFaction = 2
     end
     local playerClass = player:GetClass()
@@ -31,7 +29,7 @@ end
 
 -- this function returns a bitmask of all the traveller types that a player can spawn
 function Travel.getTravelerTypeMask(class)
-    if class == 1 then -- 1 = warriort
+    if class == 1 then -- 1 = warrior
         return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 128 + 256 + 512
     end
     if class == 2 then -- 2 = paladin
@@ -68,19 +66,28 @@ function Travel.updatePlayerTravellers(playerID)
     local playerTypeMask = Travel.players[playerID].typeMask
     local playerLevel    = Travel.players[playerID].playerLevel
     local playerFaction  = Travel.players[playerID].playerFaction
+    local next = next -- why is this here? because it's a local function that's faster than the global one i guess
 
     for _, traveller_category in pairs(Travel.travellers) do
+        print("1 - traveller_category.name = " .. traveller_category.name)
         if bit32.band(traveller_category.typeMask, playerTypeMask) ~= 0 then
             for _, specific_traveller in pairs(traveller_category.list) do
-                if Travel.isValidFaction(specific_traveller.faction, playerFaction) and
-                   specific_traveller.minLevel <= playerLevel and
-                   specific_Traveller.maxLevel >= playerLevel
-                   then
-                       table.insert(Travel.players[playerID].travellers, specific_traveller.id)
+                if next(specific_traveller) ~= nil then
+                    if Travel.isValidFaction(specific_traveller.rel, playerFaction) and
+                       specific_traveller.minLevel <= playerLevel and
+                       specific_traveller.maxLevel >= playerLevel
+                       then
+                           table.insert( Travel.players[playerID].travellers,
+                                         specific_traveller.id )
+                    end
                 end
             end
+        else
+            print("1 - typemask invalid")
         end
     end
+    print("4 - travellers updated")
+    print("4 - number of traveller tables: " .. #Travel.players[playerID].travellers)
 end
 
 function Travel.isValidFaction(f1, f2)
@@ -95,7 +102,8 @@ function Travel.isValidFaction(f1, f2)
     end
 end
 
-function Travel.getRandomTravellerId(playerID)
+function Travel.getRandomTravellerId(playerID, count)
+    print("number of traveller tables: " .. #Travel.players[playerID].travellers)
     if Travel.players[playerID].travellers ~= nil and
       #Travel.players[playerID].travellers >  0   then
         print("Travel.getRandomTravellerId() called")
@@ -103,12 +111,17 @@ function Travel.getRandomTravellerId(playerID)
         local randInt = math.random(1, #Travel.players[playerID].travellers)
         return table.remove(Travel.players[playerID].travellers, randInt)
     else
-        Travel.updatePlayerTravellers(playerID)
-        if Travel.getRandomTravellerId(playerID) == 0 then
-            print("you failed")
-            return 6496
+        print("traveller list empty. Regenerating...")
+        if count == nil then
+            count = 0
         end
-        return Travel.getRandomTravellerId(playerID)
+        if count >= 3 then
+            print("sucks to suck")
+            return 0
+        end
+        Travel.updatePlayerTravellers(playerID)
+        count = count + 1
+        return Travel.getRandomTravellerId(playerID, count)
     end
 end
 
