@@ -16,49 +16,13 @@ function Travel.addPlayer(_event, player)
         print("You're calling Travel.addPlayer() wrong.")
     end
     if player:IsHorde() == true then
-        print("player is horde")
         Travel.players[playerID].playerFaction = 1
     else
-        print("player is alliance")
         Travel.players[playerID].playerFaction = 2
     end
     local playerClass = player:GetClass()
     Travel.players[playerID].typeMask = Travel.getTravelerTypeMask(playerClass)
     Travel.updatePlayerTravellers(playerID)
-end
-
--- this function returns a bitmask of all the traveller types that a player can spawn
-function Travel.getTravelerTypeMask(class)
-    if class == 1 then -- 1 = warrior
-        return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 128 + 256 + 512
-    end
-    if class == 2 then -- 2 = paladin
-        return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 0   + 256 + 512
-    end
-    if class == 3 then -- 3 = hunter
-        return 1 + 2 + 4 + 8 + 0  + 32 + 64 + 128 + 256 + 512
-    end
-    if class == 4 then -- 4 = rogue
-        return 0 + 2 + 4 + 8 + 16 + 32 + 64 + 128 + 256 + 512
-    end
-    if class == 5 then -- 5 = priest
-        return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 0   + 256 + 512
-    end
-    if class == 6 then -- 6 = death knight
-        return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 0   + 256 + 512
-    end
-    if class == 7 then -- 7 = shaman
-        return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 0   + 256 + 512
-    end
-    if class == 8 then -- 8 = mage
-        return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 0   + 256 + 0
-    end
-    if class == 9 then -- 9 = warlock
-        return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 0   + 256 + 512
-    end
-    if class == 11 then -- 11 = druid
-        return 0 + 0 + 4 + 8 + 0  + 32 + 64 + 0   + 256 + 512
-    end
 end
 
 -- runs when a player logs in or levels up or runs out of travellers to spawn
@@ -126,9 +90,12 @@ function Travel.getRandomTravellerId(playerID, count)
 end
 
 function Travel.spawnAndTravel(player)
+    if player:IsDead() then
+        return
+    end
+
     print("A traveller appears...")
     local travellerId = Travel.getRandomTravellerId(player:GetGUIDLow())
-    print(travellerId)
     if travellerId ~= 0 then
         local x, y, z, o = player:GetLocation()
               x, y       = Movement.getBoxSpawnPosition(x, y, 30, 45)
@@ -148,6 +115,40 @@ function Travel.spawnAndTravel(player)
             z    = player:GetMap():GetHeight(x, y)
             traveller:MoveTo(math.random(0, 4294967295), x, y, z, o)
         end
+    end
+end
+
+-- this function returns a bitmask of all the traveller types that a player can spawn
+function Travel.getTravelerTypeMask(class)
+    if class == 1 then -- 1 = warrior
+        return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 128 + 256 + 512
+    end
+    if class == 2 then -- 2 = paladin
+        return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 0   + 256 + 512
+    end
+    if class == 3 then -- 3 = hunter
+        return 1 + 2 + 4 + 8 + 0  + 32 + 64 + 128 + 256 + 512
+    end
+    if class == 4 then -- 4 = rogue
+        return 0 + 2 + 4 + 8 + 16 + 32 + 64 + 128 + 256 + 512
+    end
+    if class == 5 then -- 5 = priest
+        return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 0   + 256 + 512
+    end
+    if class == 6 then -- 6 = death knight
+        return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 0   + 256 + 512
+    end
+    if class == 7 then -- 7 = shaman
+        return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 0   + 256 + 512
+    end
+    if class == 8 then -- 8 = mage
+        return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 0   + 256 + 0
+    end
+    if class == 9 then -- 9 = warlock
+        return 0 + 2 + 4 + 8 + 0  + 32 + 64 + 0   + 256 + 512
+    end
+    if class == 11 then -- 11 = druid
+        return 0 + 0 + 4 + 8 + 0  + 32 + 64 + 0   + 256 + 512
     end
 end
 

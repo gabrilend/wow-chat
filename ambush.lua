@@ -47,6 +47,11 @@ Ambush.BANNED_CREATURE_IDS = { 17887, 19416, 2673,  3569,  16422, 16423,
 function Ambush.spawnAndAttackPlayer(player)
     local LEVEL = player:GetLevel()
 
+    -- if player is not dead
+    if player:IsDead() then
+        return
+    end
+
     -- if there are no monsters queued for this player, then query the database
     local playerID = player:GetGUIDLow()
     if AMBUSH_QUEUED_TABLE[playerID] == nil then
