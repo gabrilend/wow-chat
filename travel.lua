@@ -5,7 +5,7 @@ Travel = { players    = {},
          }
 
 function Travel.addPlayer(_event, player)
-    local playerID = player:GetGUIDLow()
+    local playerID = player:GetGUID()
     if Travel.players[playerID] == nil then
         Travel.players[playerID] = { travellers = {},
                                      typeMask = 0,
@@ -95,7 +95,7 @@ function Travel.spawnAndTravel(player)
     end
 
     print("A traveller appears...")
-    local travellerId = Travel.getRandomTravellerId(player:GetGUIDLow())
+    local travellerId = Travel.getRandomTravellerId(player:GetGUID())
     if travellerId ~= 0 then
         local x, y, z, o = player:GetLocation()
               x, y       = Movement.getBoxSpawnPosition(x, y, 30, 45)

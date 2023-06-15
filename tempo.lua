@@ -47,7 +47,7 @@ end
 function Rhythm.addPlayer(_eventID, player)
     Tempo.min = Tempo.min * 2
     Tempo.max = Tempo.max * 2
-    local playerGUID = player:GetGUIDLow()
+    local playerGUID = player:GetGUID()
     if Rhythm.players[playerGUID] == nil then
         Rhythm.players[playerGUID] = { id = playerGUID,
                                        current_rhythm = 0,
@@ -62,7 +62,7 @@ end
 function Rhythm.removePlayer(_eventID, player)
     Tempo.min = Tempo.min / 2
     Tempo.max = Tempo.max / 2
-    local playerGUID = player:GetGUIDLow()
+    local playerGUID = player:GetGUID()
     if Rhythm.players[playerGUID] ~= nil then
         Rhythm.players[playerGUID] = nil
     else

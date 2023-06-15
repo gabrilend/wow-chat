@@ -53,7 +53,7 @@ function Ambush.spawnAndAttackPlayer(player)
     end
 
     -- if there are no monsters queued for this player, then query the database
-    local playerID = player:GetGUIDLow()
+    local playerID = player:GetGUID()
     if AMBUSH_QUEUED_TABLE[playerID] == nil then
         AMBUSH_QUEUED_TABLE[playerID] = { queue = {}, level = 0 }
     end
@@ -128,7 +128,7 @@ end
 
 function Ambush.randomSpawn(player)
 
-    local playerID = player:GetGUIDLow()
+    local playerID = player:GetGUID()
     local randInt = math.random(1, #AMBUSH_QUEUED_TABLE[playerID].queue)
     local creatureId = table.remove(AMBUSH_QUEUED_TABLE[playerID].queue, randInt)
 
