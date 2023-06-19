@@ -1,8 +1,8 @@
 
 require("movement") -- for movement functions
 
-             Ambush = {} -- table to hold the functions.
-AMBUSH_QUEUED_TABLE = {} -- table to hold monsters that are queued to attack.
+            Ambush = {} -- table to hold the functions.
+local AmbushQueues = {} -- table to hold monsters that are queued to attack.
 
 -- add more when you find them
 -- 7074 and 7073 are maybes, try fighting them and see if they're too hard
@@ -45,7 +45,6 @@ Ambush.BANNED_CREATURE_IDS = { 17887, 19416, 2673,  3569,  16422, 16423,
                              }
 
 function Ambush.spawnAndAttackPlayer(player)
-    local LEVEL = player:GetLevel()
 
     -- if player is not dead
     if player:IsDead() then
@@ -53,20 +52,22 @@ function Ambush.spawnAndAttackPlayer(player)
     end
 
     -- if there are no monsters queued for this player, then query the database
-    local playerID = player:GetGUID()
-    if AMBUSH_QUEUED_TABLE[playerID] == nil then
-        AMBUSH_QUEUED_TABLE[playerID] = { queue = {}, level = 0 }
-    end
-
     local next = next
-    if next(AMBUSH_QUEUED_TABLE[playerID].queue) == nil then
-        AMBUSH_QUEUED_TABLE[playerID] = {level = LEVEL} -- store player level
-        QUEUE_SIZE = 25 -- how many creatures to pull from the db at once
-        WorldDBQueryAsync("SELECT entry, minlevel, maxlevel FROM creature_template WHERE minlevel <= " .. LEVEL .. " AND maxlevel >= " .. LEVEL .. " AND rank = 0 AND npcflag = 0 AND lootid != 0 AND (type = 2 OR type = 3 OR type = 4 OR type = 5 OR type = 6 OR type = 9) LIMIT " .. QUEUE_SIZE .. ";", Ambush.pushToAmbushQueue)
+    if next(player:GetData("queue")) == nil then
+        Ambush.setupQueue(player:GetLevel())
+
+        print("C")
     else
+        print("randomly spawning")
         Ambush.randomSpawn(player)
     end
 end
+
+function Ambush.setupQueue(playerLevel)
+    local QUEUE_SIZE = 25 ------------------------------------- how many creatures to pull from the db at once
+    WorldDBQueryAsync("SELECT entry, minlevel, maxlevel FROM creature_template WHERE minlevel <= " .. playerLevel .. " AND maxlevel >= " .. playerLevel .. " AND rank = 0 AND npcflag = 0 AND lootid != 0 AND (type = 2 OR type = 3 OR type = 4 OR type = 5 OR type = 6 OR type = 9) LIMIT " .. QUEUE_SIZE .. ";", Ambush.pushToAmbushQueue)
+end
+
 
 -- important: the player's level must be stored in the table before this is called
 --            specifically at AMBUSH_QUEUED_TABLE[playerGUID].level
@@ -90,29 +91,38 @@ function Ambush.pushToAmbushQueue(query)
         print("no query found wtf")
         return
     end
+    print("creature list constructed, size = " .. #creatures)
+
+    all_players = { alliance = GetPlayersInWorld(0, false),
+                    horde    = GetPlayersInWorld(1, false),
+                    neutral  = GetPlayersInWorld(2, false)
+                  }
 
     -- for each player currently logged in
-    for playerGUID, data in pairs(AMBUSH_QUEUED_TABLE) do
-        if data.level ~= 0 then
-            local playerLevel = data.level
-            AMBUSH_QUEUED_TABLE[playerGUID].queue = {} -- initialize queue
-            -- for each creaturethat we just queried
-            for _, creature in ipairs(creatures) do
-                -- if this creature is appropriate for this player
-                if playerLevel >= creature.minLevel and
-                   playerLevel <= creature.maxLevel then
-                    -- queue this creature for this player
-                    table.insert(AMBUSH_QUEUED_TABLE[playerGUID].queue,
-                                 creature.id)
-                else
-                    print("Creature not appropriate for player")
+    for _, faction in pairs(all_players) do
+        for _, player in pairs(faction) do
+            local playerLevel = player:GetLevel()
+            if playerLevel ~= 0 then
+                -- for each creature that we just queried
+                for _, creature in ipairs(creatures) do
+                    -- if this creature is appropriate for this player
+                    if playerLevel >= creature.minLevel and
+                       playerLevel <= creature.maxLevel then
+                        -- queue this creature for this player
+                        tempTable = player:GetData("queue")
+                        table.insert(tempTable, creature.id)
+                        player:SetData( "queue", tempTable )
+                    else
+                        print("Creature not appropriate for player")
+                    end
                 end
+            else
+                print("player level == 0 which is weird")
             end
-        else
-            print("player level == 0 which is weird")
         end
     end
 end
+
 
 -- make sure this function is in the async callback function... it might take
 -- a while depending on how many banned creatures there are.
@@ -128,9 +138,11 @@ end
 
 function Ambush.randomSpawn(player)
 
-    local playerID = player:GetGUID()
-    local randInt = math.random(1, #AMBUSH_QUEUED_TABLE[playerID].queue)
-    local creatureId = table.remove(AMBUSH_QUEUED_TABLE[playerID].queue, randInt)
+    local playerID    = player:GetGUID(                     )
+    local playerQueue = player:GetData("queue"              )
+    local randInt     = math.random(1, #playerQueue         )
+    local creatureId  = table.remove(   playerQueue, randInt)
+    player:SetData(     "queue",        playerQueue         )
 
     print("Ambush! Watch out, here comes " .. creatureId .. "!")
 
@@ -153,3 +165,16 @@ function Ambush.randomSpawn(player)
     end
 end
 
+function Ambush.setupPlayer(event, player)
+
+    print("Player logged in ====================================")
+    player:SetData( "queue", {} )
+    player:SetData( "level", player:GetLevel() )
+    print( "queue =")
+    print(player:GetData( "queue" ) )
+    print( "level =")
+    print(player:GetData( "level" ) )
+end
+
+PLAYER_EVENT_ON_LOGIN = 3
+RegisterPlayerEvent(PLAYER_EVENT_ON_LOGIN, Ambush.setupPlayer)

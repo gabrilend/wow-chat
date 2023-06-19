@@ -1,57 +1,68 @@
 require("movement") -- movement.lua
 
-Travel = { players    = {},
-           travellers = {}
-         }
+Travel = { travellers = {} }
 
-function Travel.addPlayer(_event, player)
-    local playerID = player:GetGUID()
-    if Travel.players[playerID] == nil then
-        Travel.players[playerID] = { travellers = {},
-                                     typeMask = 0,
-                                     playerFaction = 0,
-                                     playerLevel = player:GetLevel()
-                                   }
-    else
-        print("You're calling Travel.addPlayer() wrong.")
-    end
+function Travel.setupPlayer(_event, player)
+    local playerData = { travellers    = {},
+                         typeMask      = 0,
+                         playerFaction = 0,
+                         playerLevel   = player:GetLevel(),
+                         playerClass   = player:GetClass()
+                        }
+    print("playerID = " .. tostring(player:GetGUID()))
+    print("player object = " .. tostring(player))
+    print("player data = " .. tostring(player:GetData("travellers")))
+
     if player:IsHorde() == true then
-        Travel.players[playerID].playerFaction = 1
+        playerData.playerFaction = 1
     else
-        Travel.players[playerID].playerFaction = 2
+        playerData.playerFaction = 2
     end
-    local playerClass = player:GetClass()
-    Travel.players[playerID].typeMask = Travel.getTravelerTypeMask(playerClass)
-    Travel.updatePlayerTravellers(playerID)
+
+    playerData.typeMask = Travel.getTravelerTypeMask(playerData.playerClass)
+
+    player:SetData("travellers", playerData)
+
+    Travel.updatePlayerTravellers(player:GetGUID())
 end
 
 -- runs when a player logs in or levels up or runs out of travellers to spawn
 function Travel.updatePlayerTravellers(playerID)
-    local playerTypeMask = Travel.players[playerID].typeMask
-    local playerLevel    = Travel.players[playerID].playerLevel
-    local playerFaction  = Travel.players[playerID].playerFaction
+    local player     = GetPlayerByGUID(playerID)
+    local playerData = player:GetData("travellers")
+    if playerData == nil then
+        Travel.setupPlayer(nil, player)
+        return
+    end
     local next = next -- why is this here? because it's a local function that's faster than the global one i guess
-
     for _, traveller_category in pairs(Travel.travellers) do
         print("1 - traveller_category.name = " .. traveller_category.name)
-        if bit32.band(traveller_category.typeMask, playerTypeMask) ~= 0 then
+        if bit32.band(traveller_category.typeMask, playerData.typeMask) ~= 0 then
             for _, specific_traveller in pairs(traveller_category.list) do
                 if next(specific_traveller) ~= nil then
-                    if Travel.isValidFaction(specific_traveller.rel, playerFaction) and
-                       specific_traveller.minLevel <= playerLevel and
-                       specific_traveller.maxLevel >= playerLevel
-                       then
-                           table.insert( Travel.players[playerID].travellers,
+                    if Travel.isValidFaction(specific_traveller.rel, playerData.playerFaction) and
+                       specific_traveller.minLevel <= playerData.playerLevel and
+                       specific_traveller.maxLevel >= playerData.playerLevel
+                    then
+                        if specific_traveller.id < 0 then -- if less than zero, a trainer
+                            print("trainer found with class id " .. (specific_traveller.id * -1) .. " and player class " .. playerData.playerClass)
+                            if (specific_traveller.id * -1) == playerData.playerClass then
+                                table.insert( playerData.travellers,
+                                              specific_traveller.trainerID )
+                                break
+                            end
+                        else
+                           table.insert( playerData.travellers,
                                          specific_traveller.id )
+                        end
                     end
                 end
             end
         else
-            print("1 - typemask invalid")
+            print("traveller typemask invalid for this class, skipping...")
         end
     end
-    print("4 - travellers updated")
-    print("4 - number of traveller tables: " .. #Travel.players[playerID].travellers)
+    player:SetData("travellers", playerData)
 end
 
 function Travel.isValidFaction(f1, f2)
@@ -67,14 +78,15 @@ function Travel.isValidFaction(f1, f2)
 end
 
 function Travel.getRandomTravellerId(playerID, count)
-    print("number of traveller tables: " .. #Travel.players[playerID].travellers)
-    if Travel.players[playerID].travellers ~= nil and
-      #Travel.players[playerID].travellers >  0   then
-        print("Travel.getRandomTravellerId() called")
-        print(#Travel.players[playerID].travellers)
-        local randInt = math.random(1, #Travel.players[playerID].travellers)
-        return table.remove(Travel.players[playerID].travellers, randInt)
-    else
+    local player = GetPlayerByGUID(playerID)
+    local playerData = player:GetData("travellers")
+    local next = next
+    if next(playerData.travellers) ~= nil then
+        local randInt     = math.random(1, #playerData.travellers)
+        local travellerID = table.remove(playerData.travellers, randInt)
+        player:SetData("travellers", playerData)
+        return travellerID
+    else -- regenerate queue
         print("traveller list empty. Regenerating...")
         if count == nil then
             count = 0
@@ -108,6 +120,7 @@ function Travel.spawnAndTravel(player)
                                                TEMPSUMMON_DESPAWN_TIMER)
 
         if traveller then
+            print("Spawning traveller " .. tostring(travellerId .. " named " .. traveller:GetName()) .. " for " .. player:GetName())
             traveller:SetSpeed(0, 1)
             traveller:SetWalk(true)
             playerX, playerY = player:GetLocation()
@@ -296,8 +309,6 @@ local innkeepers  = { { id = 11118, minLevel = 5,  maxLevel = 25, rel = 3 },
                       { id = 23995, minLevel = 46, maxLevel = 65, rel = 3 },
                       { id = 29963, minLevel = 66, maxLevel = 80, rel = 3 },
                     }
-local trainers    = { { }
-                    }
 local consumables = { { id = 4581,  minLevel = 1,  maxLevel = 25, rel = 1 },
 
                       { id = 20989, minLevel = 45, maxLevel = 60, rel = 3 },
@@ -320,6 +331,14 @@ local others      = { { id = 20980, minLevel = 30, maxLevel = 60, rel = 3 },
                       { id = 29478, minLevel = 70, maxLevel = 80, rel = 3 },
                       { id = 29716, minLevel = 56, maxLevel = 56, rel = 3 },
                       { id = 28993, minLevel = 1,  maxLevel = 30, rel = 3 },
+                    }
+-- trainers have a negative ID value so that we can break them up into different
+-- categories based on their class
+-- -1 = warrior     -4 = rogue            -7 = shaman     -10 = druid
+-- -2 = paladin     -5 = priest           -8 = mage
+-- -3 = hunter      -6 = death knight     -9 = warlock
+local trainers    = { { trainerID = 16679, minLevel = 1, maxLevel = 80, rel = 1, id = -2 },
+                      { trainerID = 4568,  minLevel = 1, maxLevel = 80, rel = 1, id = -8 },
                     }
 
 --[[ nonfunctional for now
@@ -348,4 +367,4 @@ Travel.travellers["Armor"]       = { name = "Armor",       list = armor,       t
 Travel.travellers["Food"]        = { name = "Food",        list = food,        typeMask = 512 }
 
 local PLAYER_EVENT_ON_LOGIN = 3
-RegisterPlayerEvent(PLAYER_EVENT_ON_LOGIN, Travel.addPlayer)
+RegisterPlayerEvent(PLAYER_EVENT_ON_LOGIN, Travel.setupPlayer)

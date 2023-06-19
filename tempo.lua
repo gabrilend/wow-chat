@@ -52,8 +52,6 @@ function Rhythm.addPlayer(_eventID, player)
         Rhythm.players[playerGUID] = { id = playerGUID,
                                        current_rhythm = 0,
                                        differential = 0 }
-        print("playerGUID: " .. playerGUID)
-        print("Rhythm.players[playerGUID].id: " .. Rhythm.players[playerGUID].id)
     else
         print("WARNING: playerGUID already present in Rhythm.players[]")
     end
