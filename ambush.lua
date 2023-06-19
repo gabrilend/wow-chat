@@ -65,7 +65,7 @@ end
 
 function Ambush.setupQueue(playerLevel)
     local QUEUE_SIZE = 25 ------------------------------------- how many creatures to pull from the db at once
-    WorldDBQueryAsync("SELECT entry, minlevel, maxlevel FROM creature_template WHERE minlevel <= " .. playerLevel .. " AND maxlevel >= " .. playerLevel .. " AND rank = 0 AND npcflag = 0 AND lootid != 0 AND (type = 2 OR type = 3 OR type = 4 OR type = 5 OR type = 6 OR type = 9) LIMIT " .. QUEUE_SIZE .. ";", Ambush.pushToAmbushQueue)
+    WorldDBQueryAsync("SELECT entry, minlevel, maxlevel FROM creature_template WHERE minlevel <= " .. playerLevel .. " AND maxlevel >= " .. playerLevel .. " AND rank = 0 AND npcflag = 0 AND lootid != 0 AND (type = 2 OR type = 3 OR type = 4 OR type = 5 OR type = 6 OR type = 9 OR type = 10) LIMIT " .. QUEUE_SIZE .. ";", Ambush.pushToAmbushQueue)
 end
 
 
@@ -112,8 +112,6 @@ function Ambush.pushToAmbushQueue(query)
                         tempTable = player:GetData("queue")
                         table.insert(tempTable, creature.id)
                         player:SetData( "queue", tempTable )
-                    else
-                        print("Creature not appropriate for player")
                     end
                 end
             else

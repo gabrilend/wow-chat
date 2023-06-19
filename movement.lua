@@ -1,24 +1,6 @@
 
 Movement = {}
 
-function Movement.isPositionPathable(x, y, z, mapId)
-    -- Create a temporary WorldObject at the desired position.
-    local obj = CreateWorldObject(mapId, x, y, z, 0)
-
-    -- Check if the object is in the air or in water.
-    if obj:IsInAir() or obj:IsInWater() then
-        return false
-    end
-
-    -- Check the ground level at the position.
-    local groundZ = GetMapById(mapId):GetHeight(x, y)
-    if math.abs(groundZ - z) > 10 then -- You may need to adjust this threshold.
-        return false
-    end
-
-    return true
-end
-
 function Movement.getBoxSpawnPosition(originX, originY, minDist, maxDist)
     randInt = math.random(1, 4)
     if randInt == 1 then
