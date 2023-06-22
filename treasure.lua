@@ -15,7 +15,7 @@ local chests = { { id = 2843,   minLevel = 1,  maxLevel = 5  },
                  { id = 141979, minLevel = 36, maxLevel = 40 }, -- uldaman chest
                  { id = 179697, minLevel = 41, maxLevel = 49 }, -- arena chest (blue bracers)
                  { id = 190552, minLevel = 40, maxLevel = 80 }, -- chest with vendor trash, sells for gold
-                 { id = 163464, minLevel = 50, maxLevel = 60 },
+                 { id = 153464, minLevel = 50, maxLevel = 60 },
                  { id = 179564, minLevel = 54, maxLevel = 59 }, -- dire maul chest
                  { id = 179528, minLevel = 55, maxLevel = 80 },
                  { id = 181804, minLevel = 57, maxLevel = 62 },
@@ -55,8 +55,8 @@ end
 
 -- makes treasure for the player!
 function Treasure.spawnTreasure(player)
-    local treasureMinDist = 10
-    local treasureMaxDist = 12
+    local treasureMinDist = 20
+    local treasureMaxDist = 35
     local playerQueue = player:GetData("treasureChests")
     local next = next
     if playerQueue == nil or next(playerQueue) == nil then
@@ -96,8 +96,6 @@ function Treasure.regenerateQueue(player)
     local playerLevel = player:GetLevel()
 
     for i, chest in pairs(Treasure.chests) do
-        print("chest.minLevel: " .. tostring(chest.minLevel))
-        print("chest.maxLevel: " .. tostring(chest.maxLevel))
         if playerLevel >= chest.minLevel and playerLevel <= chest.maxLevel then
             table.insert(playerQueue, chest.id)
         end

@@ -9,9 +9,6 @@ function Travel.setupPlayer(_event, player)
                          playerLevel   = player:GetLevel(),
                          playerClass   = player:GetClass()
                         }
-    print("playerID = " .. tostring(player:GetGUID()))
-    print("player object = " .. tostring(player))
-    print("player data = " .. tostring(player:GetData("travellers")))
 
     if player:IsHorde() == true then
         playerData.playerFaction = 1
@@ -36,7 +33,6 @@ function Travel.updatePlayerTravellers(playerID)
     end
     local next = next -- why is this here? because it's a local function that's faster than the global one i guess
     for _, traveller_category in pairs(Travel.travellers) do
-        print("1 - traveller_category.name = " .. traveller_category.name)
         if bit32.band(traveller_category.typeMask, playerData.typeMask) ~= 0 then
             for _, specific_traveller in pairs(traveller_category.list) do
                 if next(specific_traveller) ~= nil then
@@ -45,7 +41,6 @@ function Travel.updatePlayerTravellers(playerID)
                        specific_traveller.maxLevel >= playerData.playerLevel
                     then
                         if specific_traveller.id < 0 then -- if less than zero, a trainer
-                            print("trainer found with class id " .. (specific_traveller.id * -1) .. " and player class " .. playerData.playerClass)
                             if (specific_traveller.id * -1) == playerData.playerClass then
                                 table.insert( playerData.travellers,
                                               specific_traveller.trainerID )
@@ -58,8 +53,6 @@ function Travel.updatePlayerTravellers(playerID)
                     end
                 end
             end
-        else
-            print("traveller typemask invalid for this class, skipping...")
         end
     end
     player:SetData("travellers", playerData)
@@ -102,10 +95,6 @@ function Travel.getRandomTravellerId(playerID, count)
 end
 
 function Travel.spawnAndTravel(player)
-    if player:IsDead() then
-        return
-    end
-
     print("A traveller appears...")
     local travellerId = Travel.getRandomTravellerId(player:GetGUID())
     if travellerId ~= 0 then
@@ -208,7 +197,7 @@ local melee       = { { id = 3539,  minLevel = 17, maxLevel = 27, rel = 1 },
                       { id = 3534,  minLevel = 10, maxLevel = 20, rel = 3 },
                       { id = 19238, minLevel = 5,  maxLevel = 20, rel = 3 }, -- duplicated here
                       { id = 19238, minLevel = 31, maxLevel = 40, rel = 3 }, -- duplicate
-                      { id = 3658,  minLevel = 8,  maxlevel = 15, rel = 3 },
+                      { id = 3658,  minLevel = 8,  maxLevel = 15, rel = 3 },
                       { id = 3491,  minLevel = 13, maxLevel = 17, rel = 3 },
                       { id = 23571, minLevel = 30, maxLevel = 41, rel = 3 }, -- duplicated in armor
                       { id = 2483,  minLevel = 29, maxLevel = 30, rel = 3 }, -- duplicated here
@@ -313,7 +302,6 @@ local consumables = { { id = 4581,  minLevel = 1,  maxLevel = 25, rel = 1 },
 
                       { id = 20989, minLevel = 45, maxLevel = 60, rel = 3 },
                       { id = 12245, minLevel = 22, maxLevel = 27, rel = 3 },
-                      { id = 23363, minLevel = 50, maxLevel = 65, rel = 3 },
                       { id = 28715, minLevel = 40, maxLevel = 80, rel = 3 },
                     }
 local poisons     = { { id = 32641, minLevel = 20, maxLevel = 80, rel = 1 },
