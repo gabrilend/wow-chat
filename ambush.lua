@@ -131,18 +131,22 @@ function Ambush.isCreatureBanned(creatureId)
 end
 
 function Ambush.randomSpawn(player)
+    local ambush_min_distance = 60
+    local ambush_max_distance = 75
 
-    local playerID    = player:GetGUID(                         ) -- ?
+
+    local  playerID   = player:GetGUID(                         ) -- ?
     local playerQueue = player:GetData("queue"                  )
-    local randInt     = math.random   (1, #playerQueue          ) -- what the fuck
-    local creatureId  = table.remove(      playerQueue, randInt )
+    local   randInt   = math.random   (1, #playerQueue          ) -- what the fuck
+    local  creatureId = table.remove(      playerQueue, randInt )
     player:SetData(     "queue",           playerQueue          ) -- oh god it gets worse
 
     print("Ambush! Watch out, here comes " .. creatureId .. "!")
+    player:SendBroadcastMessage("Ambush! Watch out, here comes " .. creatureId .. "!")
 
     if creatureId ~= 0 then
         local x, y, z, o = player:GetLocation()
-              x, y       = Movement.getPlusSpawnPosition(x, y, 45, 60)
+              x, y       = Movement.getPlusSpawnPosition(x, y, ambush_min_distance, ambush_max_distance)
                     z    = player:GetMap():GetHeight(x, y)
                        o = math.random(0, 6.28)
         local TEMPSUMMON_CORPSE_TIMED_DESPAWN = 6
@@ -158,7 +162,7 @@ function Ambush.randomSpawn(player)
             local tries = 0
             while creature:IsInWater() and tries < 3 do
                 tries = tries + 1
-                x, y = Movement.getPlusSpawnPosition(x, y, 45, 60)
+                x, y = Movement.getPlusSpawnPosition(x, y, ambush_min_distance, ambush_max_distance)
                 z    = player:GetMap():GetHeight(x, y)
                 creature:NearTeleport(x, y, z, o)
             end
@@ -169,19 +173,37 @@ function Ambush.randomSpawn(player)
             --- }}}
 
             creature:SetData("ambush-chase-target", playerID)
+            creature:SetData("ambush-max-distance", ambush_max_distance)
             creature:RegisterEvent(Ambush.chasePlayer, 1000, 1)
         end
     end
 end
 
 function Ambush.chasePlayer(_eventID, _delay, _repeats, creature)
-    local playerID = creature:GetData("ambush-chase-target")
-    local player   = GetPlayerByGUID(playerID)
-    if creature:IsDead() or player:IsDead() then
+    if creature:IsDead() then
+        return
+    end
+
+    local     CREATURE_MAX_DISTANCE    = creature:GetData("ambush-max-distance") or 60 -- DISTNACE FROM THE MIDPOINT BETWEEN THE PLAYER AND THE CREATURE
+    local         WANDER_RADIUS        = creature:GetData("wander-radius") or 10
+    local WANDER_RADIUS_INCREASE_DELAY = 5000 -- time between each increase in wander radius
+    local            playerID          = creature:GetData("ambush-chase-target") -- required
+    local             player           = GetPlayerByGUID(playerID)
+    local           creatureX,
+                    creatureY,
+                    creatureZ,
+                    creatureO          = creature:GetLocation()
+
+    if player:IsDead() or not player:IsStandState() then
+        print("wandering")
+        creature:MoveClear()
+        creature:SetHomePosition(creatureX, creatureY, creatureZ, creatureO)
+        creature:MoveRandom(WANDER_RADIUS)
+        creature:SetData("wander-radius", WANDER_RADIUS)
+        creature:RegisterEvent(Ambush.chasePlayer, WANDER_RADIUS_INCREASE_DELAY, 1)
         return
     end
     local playerX, playerY = player:GetLocation()
-    local creatureX, creatureY, creatureZ, creatureO = creature:GetLocation()
     if Movement.isCloseEnough(creatureX, creatureY, playerX, playerY, 5) then
         creature:SetHomePosition(creatureX, creatureY, creatureZ, creatureO)
         creature:AttackStart(player)
@@ -191,6 +213,10 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature)
                                                        playerX,
                                                        playerY
                                                      )
+        if Movement.getLazyDistance(creatureX, creatureY, targetX, targetY) > CREATURE_MAX_DISTANCE then
+            print("too far away, despawning")
+            creature:DespawnOrUnsummon(0)
+        end
         local targetZ = creature:GetMap():GetHeight(targetX, targetY)
 
         creature:MoveTo(math.random(0, 4294967295), targetX, targetY, targetZ)

@@ -9,6 +9,14 @@ function Movement.orbitPosition(originX, originY, radius, speed, dt)
     return x, y
 end
 
+function Movement.getCircleSpawnPosition(originX, originY, minDist, maxDist)
+    local theta = math.random(0, 6.28)
+    local radius = math.random(minDist, maxDist)
+    x = originX + math.cos(theta) * radius
+    y = originY + math.sin(theta) * radius
+    return x, y
+end
+
 function Movement.getBoxSpawnPosition(originX, originY, minDist, maxDist)
     randInt = math.random(1, 4)
     if randInt == 1 then
@@ -49,6 +57,12 @@ function Movement.getPlusSpawnPosition(originX, originY, minDist, maxDist)
     return x, y
 end
 
+function Movement.getLazyDistance(x1, y1, x2, y2)
+    local dist = math.abs(x1 - x2) + math.abs(y1 - y2)
+    local dx = math.abs(x1 - x2)
+    local dy = math.abs(y1 - y2)
+    return dist, dx, dy
+end
 
 -- calculates a position on the exact opposite side of the given position
 -- x1 and y1 are the pivot point

@@ -26,7 +26,7 @@ end
 -- runs when a player logs in or levels up or runs out of travellers to spawn
 function Travel.updatePlayerTravellers(playerID)
     local player     = GetPlayerByGUID(playerID)
-    local playerData = player:GetData("travellers")
+    local playerData = player:GetData("travellers") or nil
     if playerData == nil then
         Travel.setupPlayer(nil, player)
         return
@@ -72,7 +72,7 @@ end
 
 function Travel.getRandomTravellerId(playerID, count)
     local player = GetPlayerByGUID(playerID)
-    local playerData = player:GetData("travellers")
+    local playerData = player:GetData("travellers") or nil
     local next = next
     if next(playerData.travellers) ~= nil then
         local randInt     = math.random(1, #playerData.travellers)
@@ -96,6 +96,7 @@ end
 
 function Travel.spawnAndTravel(player)
     print("A traveller appears...")
+    player:SendBroadcastMessage("A traveller appears...")
     local travellerId = Travel.getRandomTravellerId(player:GetGUID())
     if travellerId ~= 0 then
         local x, y, z, o = player:GetLocation()
