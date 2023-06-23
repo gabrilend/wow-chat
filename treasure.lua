@@ -11,7 +11,7 @@ local chests = { { id = 2843,   minLevel = 1,  maxLevel = 5  },
                  { id = 74448,  minLevel = 21, maxLevel = 27 },
                  { id = 75299,  minLevel = 27, maxLevel = 31 },
                  { id = 75300,  minLevel = 30, maxLevel = 35 },
-                 { id = 142184, minLevel = 36, maxLevel = 41 },
+                 { id = 142184, minLevel = 36, maxLevel = 41 }, -- captain's chest
                  { id = 141979, minLevel = 36, maxLevel = 40 }, -- uldaman chest
                  { id = 179697, minLevel = 41, maxLevel = 49 }, -- arena chest (blue bracers)
                  { id = 190552, minLevel = 40, maxLevel = 80 }, -- chest with vendor trash, sells for gold
@@ -40,7 +40,7 @@ local chests = { { id = 2843,   minLevel = 1,  maxLevel = 5  },
                  { id = 194201, minLevel = 80, maxLevel = 80 }, -- rare cache of winter - Ulduar
                  { id = 181366, minLevel = 80, maxLevel = 80 }, -- four horseman chest (lvl 80)
 
-                 { id = 161527, minLevel = 1,  maxLevel = 80 }, -- dinosaur bone
+                 { id = 2849,   minLevel = 1,  maxLevel = 80 }, -- dinosaur bone
                }
 Treasure.chests = chests
 
@@ -69,6 +69,7 @@ function Treasure.spawnTreasure(player)
               x, y       = Movement.getPlusSpawnPosition(x, y, treasureMinDist, treasureMaxDist)
                     z    = player:GetMap():GetHeight(x, y)
                        o = math.random(0, 6.28)
+        player:SendBroadcastMessage("Treasure!")
         print("Treasure!")
         local chest = player:SummonGameObject(chestID, x, y, z, o, 0)
     end
