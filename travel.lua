@@ -31,7 +31,7 @@ function Travel.updatePlayerTravellers(playerID)
         Travel.setupPlayer(nil, player)
         return
     end
-    local next = next -- why is this here? because it's a local function that's faster than the global one i guess
+    local next = next
     for _, traveller_category in pairs(Travel.travellers) do
         if bit32.band(traveller_category.typeMask, playerData.typeMask) ~= 0 then
             for _, specific_traveller in pairs(traveller_category.list) do
@@ -103,23 +103,63 @@ function Travel.spawnAndTravel(player)
               x, y       = Movement.getBoxSpawnPosition(x, y, 30, 45)
                     z    = player:GetMap():GetHeight(x, y)
                        o = math.random(0, 6.28)
-        local TEMPSUMMON_TIMED_OR_DEAD_DESPAWN = 1
+        local TEMPSUMMON_DEAD_DESPAWN  = 7          -- despawn when creature disappears
         local TEMPSUMMON_DESPAWN_TIMER = 300 * 1000 -- 5 minutes
         local traveller = player:SpawnCreature(travellerId, x, y, z, o,
                                                TEMPSUMMON_TIMED_OR_DEAD_DESPAWN,
                                                TEMPSUMMON_DESPAWN_TIMER)
 
         if traveller then
-            print("Spawning traveller " .. tostring(travellerId .. " named " .. traveller:GetName()) .. " for " .. player:GetName())
+            print("Spawning traveller " .. tostring(travellerId ..
+                  " named " .. traveller:GetName()) ..
+                  " for " .. player:GetName())
             traveller:SetSpeed(0, 1)
             traveller:SetWalk(true)
             playerX, playerY = player:GetLocation()
             x, y = Movement.getPositionOppositePoint(x, y, playerX, playerY)
             z    = player:GetMap():GetHeight(x, y)
             traveller:MoveTo(math.random(0, 4294967295), x, y, z, o)
+            traveller:SetData("theta", o)
+            -- traveller:RegisterEvent(Travel.continueTravelling, 25000, 1)
         end
     end
 end
+
+-- 1.57 radians = 90 degrees
+-- 0.78 radians = 45 degrees
+-- 0.39 radians = 22.5 degrees
+function Travel.continueTravelling(_eventID, _delay, _repeats, creature )
+    local player = creature:GetNearestPlayer(60, 0, 1)
+    if player == nil then
+        creature:DespawnOrUnsummon(0)
+    else
+        local x, y, z, o = creature:GetLocation()
+        local theta      = creature:GetData("theta")
+        local thetaMin   = theta - 0.78
+        local thetaMax   = theta + 0.78
+        local dir        = math.random(-0.39, 0.39)
+        if o + dir > thetaMax or o + dir < thetaMin then
+            dir = dir * -1
+        end
+        o = o + dir
+        repeat
+            x, y = Movement.getPositionInFrontOfPoint(x, y, o , 5)
+            newZ = creature:GetMap():GetHeight(x, y)
+            if o > theta then
+                thetaMin = theta
+                theta    = thetaMax
+                thetaMax = thetaMax + 0.78
+        elseif o < theta then
+                thetaMax = theta
+                theta    = thetaMin
+                thetaMin = thetaMin - 0.78
+            end
+        until newZ > z + 10
+
+    end
+end
+
+---------------------------------------------------------------------------------------------------
 
 -- this function returns a bitmask of all the traveller types that a player can spawn
 function Travel.getTravelerTypeMask(class)
@@ -166,7 +206,7 @@ local food        = { { id = 32642, minLevel = 65, maxLevel = 80, rel = 1 },
                       { id = 258,   minLevel = 1,  maxLevel = 20, rel = 2 },
                       { id = 3937,  minLevel = 6,  maxLevel = 25, rel = 2 },
 
-                      { id = 6496,  minLevel = 1,  maxLevel = 80, rel = 3 }, -- duplicated three times because I'm sadistic
+                      { id = 6496,  minLevel = 1,  maxLevel = 80, rel = 3 }, -- duplicated x3 >:)
                       { id = 6496,  minLevel = 1,  maxLevel = 80, rel = 3 }, -- duplicate
                       { id = 6496,  minLevel = 1,  maxLevel = 80, rel = 3 }, -- duplicate
                       { id = 2842,  minLevel = 1,  maxLevel = 45, rel = 3 },
@@ -253,7 +293,7 @@ local armor       = { { id = 1407,  minLevel = 32, maxLevel = 32, rel = 1 }, -- 
                       { id = 3528,  minLevel = 12, maxLevel = 15, rel = 2 },
                       { id = 3532,  minLevel = 5,  maxLevel = 10, rel = 2 },
                       { id = 3530,  minLevel = 5,  maxLevel = 10, rel = 2 },
-                      { id = 3529,  minLevel = 12, maxLevel = 15, rel = 2 }, -- verify if hostile or not
+                      { id = 3529,  minLevel = 12, maxLevel = 15, rel = 2 }, -- verify if hostile
                       { id = 2264,  minLevel = 5,  maxLevel = 10, rel = 2 },
                       { id = 4188,  minLevel = 17, maxLevel = 17, rel = 2 }, -- duplicated here
                       { id = 4188,  minLevel = 22, maxLevel = 22, rel = 2 }, -- duplicate

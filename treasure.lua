@@ -5,7 +5,7 @@ Treasure = { chests = {} }
 local chests = { { id = 2843,   minLevel = 1,  maxLevel = 5  },
                  { id = 106318, minLevel = 3,  maxLevel = 7  },
                  { id = 106319, minLevel = 6,  maxLevel = 10 },
-                 { id = 152608, minLevel = 11, maxLevel = 15 }, -- kolkar's booty
+                 -- { id = 152608, minLevel = 11, maxLevel = 15 }, -- kolkar's booty, req key
                  { id = 75293,  minLevel = 11, maxLevel = 15 },
                  { id = 75298,  minLevel = 16, maxLevel = 21 },
                  { id = 74448,  minLevel = 21, maxLevel = 27 },
