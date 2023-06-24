@@ -47,7 +47,8 @@ end
 function PeriodicSpawnAmbush(eventID, delay, repeats, player)
     periodicEvent(PeriodicSpawnAmbush, delay, repeats, player)
     if   player:IsDead() or player:IsInWater() or not player:IsStandState() then
-        if ((player:GetData("num-ambushers") or 0) >= 3) then -- if there are more than 3 ambushers
+        print("might be spawning a mob because num-ambushers is " .. player:GetData("num-ambushers"))
+        if (player:GetData("num-ambushers") >= 3) then -- if there are more than 3 ambushers
             print("too many ambushers")
         end
         if player:GetData("is-in-boss-fight") then

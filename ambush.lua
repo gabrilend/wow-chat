@@ -268,7 +268,7 @@ function Ambush.randomSpawn(player) -- {{{
 
             creature:SetData("ambush-chase-target", playerID)
             creature:SetData("ambush-max-distance", ambush_max_distance)
-            player  :SetData("num-ambushers", (player:GetData("num-ambushers") or 0) + 1)
+            player  :SetData("num-ambushers", player:GetData("num-ambushers") + 1)
             creature:RegisterEvent(Ambush.chasePlayer, 1000, 1)
         end
     end
@@ -360,6 +360,7 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
                                                      )
         if Movement.getLazyDistance(creatureX, creatureY, targetX, targetY) > CREATURE_MAX_DISTANCE then
             print(Movement.getLazyDistance(creatureX, creatureY, targetX, targetY) .." yards is too far away, despawning")
+            player:SetData("num-ambushers", player:GetData("num-ambushers") - 1)
             creature:DespawnOrUnsummon(0)
         end
         local targetZ = creature:GetMap():GetHeight(targetX, targetY)
@@ -394,6 +395,7 @@ end -- }}}
 function Ambush.setupPlayer(event, player)
     player:SetData( "queue", {} )
     player:SetData( "rare-queue", {} )
+    player:SetData( "num-ambushers", 0 )
 end
 
 PLAYER_EVENT_ON_LOGIN = 3
