@@ -46,15 +46,11 @@ end
 
 function PeriodicSpawnAmbush(eventID, delay, repeats, player)
     periodicEvent(PeriodicSpawnAmbush, delay, repeats, player)
-    if   player:IsDead() or player:IsInWater() or not player:IsStandState() then
-        print("might be spawning a mob because num-ambushers is " .. player:GetData("num-ambushers"))
-        if (player:GetData("num-ambushers") >= 3) then -- if there are more than 3 ambushers
-            print("too many ambushers")
-        end
-        if player:GetData("is-in-boss-fight") then
-            print("in boss fight")
-        end
-        return
+    if not player:IsStandState()                then print("no ambush - player is sitting down")
+    elseif player:IsDead()                      then print("no ambush - player is dead")
+    elseif player:IsInWater()                   then print("no ambush - player is in water")
+    elseif player:GetData("num-ambushers") >= 3 then print("no ambush - too many ambushers")
+    elseif player:GetData("is-in-boss-fight")   then print("no ambush - in boss fight")
     else
         Ambush.spawnAndAttackPlayer(nil, nil, nil, player)
     end

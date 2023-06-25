@@ -200,11 +200,6 @@ function Ambush.randomSpawn(player, isRare) -- {{{
         corpseDespawnTimer = 60 * 1000 -- 60 seconds
     end
 
-    print(queueType)
-    print(player:GetData(queueType))
-    for _, id in ipairs(player:GetData(queueType)) do
-        print(id)
-    end
     local  playerID   = player:GetGUID()
     local playerQueue = player:GetData(queueType)
     local   randInt   = math.random(1, #playerQueue)
