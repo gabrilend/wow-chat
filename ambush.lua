@@ -1,4 +1,4 @@
------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
 
             Ambush = {} -- table to hold the functions.
 local AmbushQueues = {} -- table to hold monsters that are queued to attack.
@@ -46,9 +46,10 @@ Ambush.BANNED_CREATURE_IDS = { 17887, 19416, 2673,  3569,  16422, 16423, -- {{{
 Ambush.BANNED_RARE_IDS = { 0, -- {{{
                          } -- }}}
 
------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
 
 -- ranks: 0 = regular mob, 2 = rare elite, 4 = rare
+-- this function determines which queue to use when spawning a monster
 function Ambush.spawnAndAttackPlayer(_eventID, _delay, _repeats, player) -- {{{
 
     -- if there are no monsters queued for this player, then query the database
@@ -73,12 +74,14 @@ function Ambush.spawnAndAttackPlayer(_eventID, _delay, _repeats, player) -- {{{
     end
 end -- }}}
 
------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
 
+-- this function generates an async sql query and calls pushToAmbushQueue() when it's done
 function Ambush.setupAmbushQueue(playerLevel, rank) -- {{{
     WorldDBQueryAsync("SELECT entry, minlevel, maxlevel, rank FROM creature_template WHERE minlevel <= " .. playerLevel .. " AND maxlevel >= " .. playerLevel .. " AND rank = " .. rank .. " AND npcflag = 0 AND lootid != 0 AND type IN (2, 3, 4, 5, 6, 9, 10);", Ambush.pushToAmbushQueue)
 end -- }}}
 
+-- this function builds an Ambush queue based on the results of the sql query
 function Ambush.pushToAmbushQueue(query) -- {{{
     local LEVEL_MAX = 0 -- differential between player level and monster level
     local LEVEL_MIN = 0 -- MAKE SURE YOU ALSO SET IN setup[Solo/Group]RareQueue()
@@ -152,19 +155,24 @@ function Ambush.pushToAmbushQueue(query) -- {{{
 end -- }}}
 
 -- slower than regenerating the queue all at once
-function Ambush.addCreatureToQueue(player, creatureId, isRare) -- {{{
-    if isRare then
-        local tempTable = player:GetData("rare-queue")
-        table.insert(tempTable, creatureId)
-        player:SetData("rare-queue", tempTable)
-    else
-        local tempTable = player:GetData("queue")
-        table.insert(tempTable, creatureId)
-        player:SetData("queue", tempTable)
+function Ambush.addCreatureToQueue(player, creatureId, minLevel, maxLevel, isRare) -- {{{
+    local queueType
+    if isRare then queueType = "rare-queue"
+              else queueType = "queue"
     end
+    local creature = { id       = creatureId,
+                       minLevel = minLevel,
+                       maxLevel = maxLevel,
+                     }
+    local tempTable[1] = creature
+    for k, v in player:GetData(queueType) do
+        tempTable[k + 1] = v
+    end
+    player:SetData(queueType, tempTable)
+
 end -- }}}
 
------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
 
 -- make sure this function is in the async callback function... it might take
 -- a while depending on how many banned creatures there are.
@@ -181,7 +189,7 @@ function Ambush.isCreatureBanned(creatureId, isRare) -- {{{
     return false -- if not banned
 end -- }}}
 
------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
 
 function Ambush.randomSpawn(player, isRare) -- {{{
     local ambush_min_distance = 60
@@ -250,7 +258,7 @@ function Ambush.randomSpawn(player, isRare) -- {{{
     end
 end -- }}}
 
------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
 
 function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
     if creature:IsDead() then
@@ -287,6 +295,21 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
                                                        playerX,
                                                        playerY
                                                      )
+        if player:GetMapID() ~= creature:GetMapID() then -- {{{
+            -- if the player is on the border between one map and another while
+            -- the creatures are chasing them, then the creature will get stuck
+            -- on the border and not be able to cross over. This is a problem
+            -- because the creature will not be able to attack the player and
+            -- the player will not be able to attack the creature. So, if the
+            -- player and the creature are on different maps, then just despawn
+            -- the creature and attempt to respawn it on the player's map.
+            print("player and creature are on different maps, respawning")
+            player:SetData("num-ambushers", player:GetData("num-ambushers") - 1)
+            Ambush.addCreatureToQueue(player, creature:GetEntry(), creature:GetLevel(), creature:GetLevel(), false) -- setting isRare to false because it doesn't matter which queue the creature spawns in
+            player:RegisterEvent(Ambush.spawnCreature, 1000, 1)
+            creature:DespawnOrUnsummon(0)
+        end -- }}}
+
         if Movement.getLazyDistance(creatureX, creatureY, targetX, targetY) > CREATURE_MAX_DISTANCE then
             print(Movement.getLazyDistance(creatureX, creatureY, targetX, targetY) .." yards is too far away, despawning")
             player:SetData("num-ambushers", player:GetData("num-ambushers") - 1)
@@ -319,7 +342,7 @@ function Ambush.onCreatureDeath(event, killer, creature) -- {{{
     end
 end -- }}}
 
------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
 
 function Ambush.setupPlayer(event, player)
     player:SetData( "queue", {} )
@@ -332,4 +355,4 @@ PLAYER_EVENT_ON_KILL_CREATURE = 7
 RegisterPlayerEvent(PLAYER_EVENT_ON_LOGIN,  Ambush.setupPlayer)
 RegisterPlayerEvent(PLAYER_EVENT_ON_KILL_CREATURE, Ambush.onCreatureDeath, 0)
 
------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
