@@ -15,12 +15,14 @@ local denizens_of_the_spirit_world = {}
 local function spiritHeartbeat()
     local next = next
     if next(denizens_of_the_spirit_world) == nil then
+        print("no spirits, returning")
         return
     end
     for guid, isDead in pairs(denizens_of_the_spirit_world) do
         local player = GetPlayerByGUID(guid)
         if player ~= nil then -- if player is not logged out
             if not player:IsDead() then
+                print("player is no longer dead, removing from spirit world")
                 denizens_of_the_spirit_world[guid] = nil
                 InitialLogin(nil, player)
             end
@@ -44,29 +46,34 @@ end
 
 function PeriodicSpawnAmbush(eventID, delay, repeats, player)
     periodicEvent(PeriodicSpawnAmbush, delay, repeats, player)
-    if player:IsDead() or player:IsInWater() or not player:IsStandState() then
-        periodicEvent(PeriodicSpawnAmbush, delay, repeats, player)
-        return
+    if not player:IsStandState()                then print("no ambush - player is sitting down")
+    elseif player:IsDead()                      then print("no ambush - player is dead")
+    elseif player:IsInWater()                   then print("no ambush - player is in water")
+    elseif player:GetData("num-ambushers") >= 3 then print("no ambush - too many ambushers")
+    elseif player:GetData("is-in-boss-fight")   then print("no ambush - in boss fight")
+    else
+        Ambush.spawnAndAttackPlayer(nil, nil, nil, player)
     end
-    Ambush.spawnAndAttackPlayer(nil, nil, nil, player)
 end
 
 function PeriodicSpawnTravellers(eventID, delay, repeats, player)
     periodicEvent(PeriodicSpawnTravellers, delay, repeats, player)
     if player:IsDead() or player:IsInWater() or not player:IsStandState() then
-        periodicEvent(PeriodicSpawnTravellers, delay, repeats, player)
+        print("skipping traveller spawn")
         return
+    else
+        Travel.spawnAndTravel(player)
     end
-    Travel.spawnAndTravel(player)
 end
 
 function PeriodicSpawnTreasure(eventID, delay, repeats, player)
     periodicEvent(PeriodicSpawnTreasure, delay, repeats, player)
     if player:IsDead() or player:IsInWater() or not player:IsStandState() then
-        periodicEvent(PeriodicSpawnTreasure, delay, repeats, player)
+        print("skipping treasure spawn")
         return
+    else
+        Treasure.spawnTreasure(player)
     end
-    Treasure.spawnTreasure(player)
 end
 
 --------------------------------------------------------------------------------
@@ -78,9 +85,9 @@ function InitialLogin(_event, player)
         return
     end
 
-    local DELAY_PERIODIC_SPAWN_CREATURE  = 21  * 1000  -- 21 seconds
-    local DELAY_PERIODIC_SPAWN_TRAVELLER = 210 * 1000  -- 3  minutes
-    local DELAY_PERIODIC_SPAWN_TREASURE  = 120 * 1000  -- 2  minutes
+    local DELAY_PERIODIC_SPAWN_CREATURE  = 21  * 1000  -- 21  seconds
+    local DELAY_PERIODIC_SPAWN_TRAVELLER = 210 * 1000  -- 210 seconds
+    local DELAY_PERIODIC_SPAWN_TREASURE  = 120 * 1000  -- 120 seconds
     periodicEvent(PeriodicSpawnAmbush,
                   DELAY_PERIODIC_SPAWN_CREATURE,
                   1,

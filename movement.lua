@@ -1,14 +1,6 @@
 
 Movement = {}
 
--- call this function periodically and it'll return a new target position
-function Movement.orbitPosition(originX, originY, radius, speed, dt)
-    x = originX + math.cos(speed * dt) * radius
-    y = originY + math.sin(speed * dt) * radius
-
-    return x, y
-end
-
 function Movement.getCircleSpawnPosition(originX, originY, minDist, maxDist)
     local theta = math.random(0, 6.28)
     local radius = math.random(minDist, maxDist)
@@ -62,6 +54,31 @@ function Movement.getLazyDistance(x1, y1, x2, y2)
     local dx = math.abs(x1 - x2)
     local dy = math.abs(y1 - y2)
     return dist, dx, dy
+end
+
+function Movement.getInitialAngle(originX, originY, monsterX, monsterY)
+    -- Calculate the difference in x and y coordinates
+    local dx = monsterX - originX
+    local dy = monsterY - originY
+
+    -- Use atan2 to get the angle in radians
+    local angle = math.atan2(dy, dx)
+
+    return angle
+end
+
+function Movement.getOrbitPosition(originX, originY, radius, speed, dt, initialAngle)
+    -- Calculate the angular speed based on the monster's linear speed and the radius of the circle
+    local angular_speed = speed / radius
+
+    -- Compute the new angle after dt seconds
+    local new_angle = initialAngle + angular_speed * dt
+
+    -- Calculate the new position
+    local x = originX + math.cos(new_angle) * radius
+    local y = originY + math.sin(new_angle) * radius
+
+    return x, y
 end
 
 -- calculates a position on the exact opposite side of the given position

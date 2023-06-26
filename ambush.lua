@@ -1,5 +1,4 @@
-
-require("movement") -- for movement functions
+---------------------------------------------------------------------------------------------------
 
             Ambush = {} -- table to hold the functions.
 local AmbushQueues = {} -- table to hold monsters that are queued to attack.
@@ -7,7 +6,7 @@ local AmbushQueues = {} -- table to hold monsters that are queued to attack.
 -- add more when you find them
 -- 7074 and 7073 are maybes, try fighting them and see if they're too hard
 -- 11141 on thin ice
-Ambush.BANNED_CREATURE_IDS = { 17887, 19416, 2673,  3569,  16422, 16423,
+Ambush.BANNED_CREATURE_IDS = { 17887, 19416, 2673,  3569,  16422, 16423, -- {{{
                                16437, 16438, 17206, 1946,  5893,  4789,
                                5894,  7050,  7067,  7310,  7849,  5723,
                                11876, 17207, 2794,  11560, 11195, 13736,
@@ -42,40 +41,66 @@ Ambush.BANNED_CREATURE_IDS = { 17887, 19416, 2673,  3569,  16422, 16423,
                                31326, 31327, 31468, 31554, 31555, 31671,
                                31681, 31692, 31798, 32161, 32767, 32769,
                                33289
-                             }
+                             } -- }}}
 
-function Ambush.spawnAndAttackPlayer(_eventID, _delay, _repeats, player)
+Ambush.BANNED_RARE_IDS = { 0, -- {{{
+                         } -- }}}
+
+---------------------------------------------------------------------------------------------------
+
+-- ranks: 0 = regular mob, 2 = rare elite, 4 = rare
+-- this function determines which queue to use when spawning a monster
+function Ambush.spawnAndAttackPlayer(_eventID, _delay, _repeats, player) -- {{{
 
     -- if there are no monsters queued for this player, then query the database
     local next = next
     if next(player:GetData("queue")) == nil then
-        print("Heh, thought you could escape me? Think again!")
-        player:RegisterEvent(Ambush.spawnAndAttackPlayer, 3000, 1)
-        Ambush.setupQueue(player:GetLevel())
+        local playerLevel = player:GetLevel()
+        if next(player:GetData("rare-queue")) == nil then
+            if player:IsInGroup() and player:GetGroup():GetMembersCount() > 2 then
+                print("Heh, thought you could escape us? Think again! (group rare mob spawning)")
+                Ambush.setupAmbushQueue(playerLevel, 2)
+            else
+                print("Heh, thought you could escape me? Think again! (solo rare mob spawning)")
+                Ambush.setupAmbushQueue(playerLevel, 4)
+            end
+        else
+            Ambush.setupAmbushQueue(playerLevel, 0)
+            Ambush.randomSpawn(player, true)
+        end
+        -- player:RegisterEvent(Ambush.spawnAndAttackPlayer, 3000, 1)
     else
-        Ambush.randomSpawn(player)
+        Ambush.randomSpawn(player, false)
     end
-end
+end -- }}}
 
-function Ambush.setupQueue(playerLevel)
-    local QUEUE_SIZE = 25
-    WorldDBQueryAsync("SELECT entry, minlevel, maxlevel FROM creature_template WHERE minlevel <= " .. playerLevel .. " AND maxlevel >= " .. playerLevel .. " AND rank = 0 AND npcflag = 0 AND lootid != 0 AND (type = 2 OR type = 3 OR type = 4 OR type = 5 OR type = 6 OR type = 9 OR type = 10) LIMIT " .. QUEUE_SIZE .. ";", Ambush.pushToAmbushQueue)
-end
+---------------------------------------------------------------------------------------------------
 
+-- this function generates an async sql query and calls pushToAmbushQueue() when it's done
+function Ambush.setupAmbushQueue(playerLevel, rank) -- {{{
+    WorldDBQueryAsync("SELECT entry, minlevel, maxlevel, rank FROM creature_template WHERE minlevel <= " .. playerLevel .. " AND maxlevel >= " .. playerLevel .. " AND rank = " .. rank .. " AND npcflag = 0 AND lootid != 0 AND type IN (2, 3, 4, 5, 6, 9, 10);", Ambush.pushToAmbushQueue)
+end -- }}}
 
--- important: the player's level must be stored in the table before this is called
---            specifically at AMBUSH_QUEUED_TABLE[playerGUID].level
-function Ambush.pushToAmbushQueue(query)
+-- this function builds an Ambush queue based on the results of the sql query
+function Ambush.pushToAmbushQueue(query) -- {{{
+    local LEVEL_MAX = 0 -- differential between player level and monster level
+    local LEVEL_MIN = 0 -- MAKE SURE YOU ALSO SET IN setup[Solo/Group]RareQueue()
+    local isRare = false
+    local MaxQueueSize = 8
 
     local creatures = {}
     if query then
+        -- if creature is rare or rare elite
+        if query:GetUInt32(3) == 4 or
+           query:GetUInt32(3) == 2 then isRare = true
+                                   else isRare = false end
         repeat
             local creature = {
                 id       = query:GetUInt32(0),
                 minLevel = query:GetUInt32(1),
-                maxLevel = query:GetUInt32(2)
+                maxLevel = query:GetUInt32(2),
             }
-            if not Ambush.isCreatureBanned(creature.id) then
+            if not Ambush.isCreatureBanned(creature.id, isRare) then
                 table.insert(creatures, creature)
             end
         until not query:NextRow()
@@ -83,6 +108,17 @@ function Ambush.pushToAmbushQueue(query)
         print("no query found wtf")
         return
     end
+
+    if #creatures > MaxQueueSize then -- {{{
+        print("queue size too large, truncating")
+        local tempTable = {}
+        local creature
+        for i = 1, MaxQueueSize do
+            creature = table.remove(creatures, math.random(#creatures))
+            table.insert(tempTable, creature)
+        end
+        creatures = tempTable
+    end -- }}}
 
     all_players = { alliance = GetPlayersInWorld(0, false),
                     horde    = GetPlayersInWorld(1, false),
@@ -97,12 +133,18 @@ function Ambush.pushToAmbushQueue(query)
                 -- for each creature that we just queried
                 for _, creature in ipairs(creatures) do
                     -- if this creature is appropriate for this player
-                    if playerLevel >= creature.minLevel and
-                       playerLevel <= creature.maxLevel then
+                    if playerLevel >= creature.minLevel - LEVEL_MIN and
+                       playerLevel <= creature.maxLevel + LEVEL_MAX then
                         -- queue this creature for this player
-                        tempTable = player:GetData("queue")
-                        table.insert(tempTable, creature.id)
-                        player:SetData("queue", tempTable)
+                        if isRare then
+                            tempTable = player:GetData("rare-queue")
+                            table.insert(tempTable, creature.id)
+                            player:SetData("rare-queue", tempTable)
+                        else
+                            tempTable = player:GetData("queue")
+                            table.insert(tempTable, creature.id)
+                            player:SetData("queue", tempTable)
+                        end
                     end
                 end
             else
@@ -110,55 +152,90 @@ function Ambush.pushToAmbushQueue(query)
             end
         end
     end
-end
+end -- }}}
 
-function Ambush.addCreatureToQueue(player, creatureId)
-    local tempTable = player:GetData("queue")
-    table.insert(tempTable, creatureId)
-    player:SetData("queue", tempTable)
-end
+-- slower than regenerating the queue all at once
+function Ambush.addCreatureToQueue(player, creatureId, minLevel, maxLevel, isRare) -- {{{
+    local queueType
+    if isRare then queueType = "rare-queue"
+              else queueType = "queue"
+    end
+    local creature = { id       = creatureId,
+                       minLevel = minLevel,
+                       maxLevel = maxLevel,
+                     }
+    local tempTable = {}
+    tempTable[1] = creature
+    for k, v in player:GetData(queueType) do
+        tempTable[k + 1] = v
+    end
+    player:SetData(queueType, tempTable)
+
+end -- }}}
+
+---------------------------------------------------------------------------------------------------
 
 -- make sure this function is in the async callback function... it might take
 -- a while depending on how many banned creatures there are.
-function Ambush.isCreatureBanned(creatureId)
+function Ambush.isCreatureBanned(creatureId, isRare) -- {{{
 
+    if isRare then
+        for _, id in ipairs(Ambush.BANNED_RARE_IDS) do
+            if creatureId == id then return true end end
+
+    else -- if not rare
     for _, id in ipairs(Ambush.BANNED_CREATURE_IDS) do
-        if creatureId == id then
-            return true
-        end
+        if creatureId == id then return true end end
     end
-    return false
-end
+    return false -- if not banned
+end -- }}}
 
-function Ambush.randomSpawn(player)
+---------------------------------------------------------------------------------------------------
+
+function Ambush.randomSpawn(player, isRare) -- {{{
     local ambush_min_distance = 60
     local ambush_max_distance = 75
+    local queueType
+    local corpseDespawnType
+    local corpseDespawnTimer
 
+    if isRare then
+        queueType = "rare-queue"
+        corpseDespawnType  = 8
+        corpseDespawnTimer = nil
+    else
+        queueType = "queue"
+        corpseDespawnType  = 6
+        corpseDespawnTimer = 60 * 1000 -- 60 seconds
+    end
 
-    local  playerID   = player:GetGUID(                         ) -- ?
-    local playerQueue = player:GetData("queue"                  )
-    local   randInt   = math.random   (1, #playerQueue          ) -- what the fuck
-    local  creatureId = table.remove(      playerQueue, randInt )
-    player:SetData(     "queue",           playerQueue          ) -- oh god it gets worse
+    local  playerID   = player:GetGUID()
+    local playerQueue = player:GetData(queueType)
+    local   randInt   = math.random(1, #playerQueue)
+    local creatureId  = table.remove(playerQueue, randInt)
+    player:SetData(queueType, playerQueue)
 
-    print("Ambush! Watch out, here comes " .. creatureId .. "!")
-    player:SendBroadcastMessage("Ambush! Watch out, here comes " .. creatureId .. "!")
+    if isRare then
+        print("Rare creature spawn: " .. creatureId)
+        player:SendBroadcastMessage("A dark rustling alerts you to a dangerous presence. Keep a lookout.")
+    else
+        print("Ambush! Watch out, here comes " .. creatureId .. "!")
+        player:SendBroadcastMessage("Ambush! Watch out, here comes " .. creatureId .. "!")
+    end
 
     if creatureId ~= 0 then
         local x, y, z, o = player:GetLocation()
               x, y       = Movement.getPlusSpawnPosition(x, y, ambush_min_distance, ambush_max_distance)
                     z    = player:GetMap():GetHeight(x, y)
                        o = math.random(0, 6.28)
-        local TEMPSUMMON_CORPSE_TIMED_DESPAWN = 6
-        local TEMPSUMMON_DESPAWN_TIMER = 60 * 1000 -- 60 seconds
         local creature = player:SpawnCreature(creatureId, x, y, z, o,
-                                              TEMPSUMMON_CORPSE_TIMED_DESPAWN,
-                                              TEMPSUMMON_DESPAWN_TIMER)
+                                              corpseDespawnType,
+                                              corpseDespawnTimer)
         if creature then
             -- check and make sure the creature did not spawn in the water
             -- if it did, then try 3 times to find a new spawn location.
             -- if one cannot be found, then just give up and despawn the creature
-            -- {{{
+            -- is-in-water check {{{
             local tries = 0
             while creature:IsInWater() and tries < 3 do
                 tries = tries + 1
@@ -174,36 +251,50 @@ function Ambush.randomSpawn(player)
 
             creature:SetData("ambush-chase-target", playerID)
             creature:SetData("ambush-max-distance", ambush_max_distance)
+            if isRare then player:SetData("is-in-boss-fight", true)
+                      else player:SetData("num-ambushers", player:GetData("num-ambushers") + 1)
+            end
             creature:RegisterEvent(Ambush.chasePlayer, 1000, 1)
         end
     end
-end
+end -- }}}
 
-function Ambush.chasePlayer(_eventID, _delay, _repeats, creature)
+---------------------------------------------------------------------------------------------------
+
+function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
     if creature:IsDead() then
         return
     end
-
-    local     CREATURE_MAX_DISTANCE    = creature:GetData("ambush-max-distance") or 60 -- DISTNACE FROM THE MIDPOINT BETWEEN THE PLAYER AND THE CREATURE
-    local         WANDER_RADIUS        = creature:GetData("wander-radius") or 10
-    local WANDER_RADIUS_INCREASE_DELAY = 5000 -- time between each increase in wander radius
+                                      -- DISTNACE FROM THE MIDPOINT BETWEEN THE PLAYER AND THE
+                                      -- CREATURE
+    local     CREATURE_MAX_DISTANCE    = creature:GetData("ambush-max-distance") or 60
+    local         WANDER_RADIUS        = creature:GetData("wander-radius") or 30
+    local     WANDER_ROTATION_DELAY    = 2000 -------- time between each new waypoint on the circle
     local            playerID          = creature:GetData("ambush-chase-target") -- required
-    local             player           = GetPlayerByGUID(playerID)
+    local            player            = GetPlayerByGUID(playerID)
+    local            playerX,
+                     playerY           = player:GetLocation()
     local           creatureX,
                     creatureY,
                     creatureZ,
                     creatureO          = creature:GetLocation()
 
-    if player:IsDead() or not player:IsStandState() then
-        print("wandering")
+    if player:IsDead() or not player:IsStandState() then -- {{{
+        print("orbiting")
         creature:MoveClear()
         creature:SetHomePosition(creatureX, creatureY, creatureZ, creatureO)
-        creature:MoveRandom(WANDER_RADIUS)
-        creature:SetData("wander-radius", WANDER_RADIUS)
-        creature:RegisterEvent(Ambush.chasePlayer, WANDER_RADIUS_INCREASE_DELAY, 1)
+        local angle = Movement.getInitialAngle(playerX, playerY, creatureX, creatureY)
+        local x, y  = Movement.getOrbitPosition( playerX, playerY,
+                                                 WANDER_RADIUS,
+                                                 creature:GetSpeed(1),
+                                                 WANDER_ROTATION_DELAY,
+                                                 angle
+                                               )
+        creature:MoveTo(math.random(0, 4294967295), x, y, creature:GetMap():GetHeight(x, y))
+        creature:RegisterEvent(Ambush.chasePlayer, WANDER_ROTATION_DELAY, 1)
         return
-    end
-    local playerX, playerY = player:GetLocation()
+    end -- }}}
+
     if Movement.isCloseEnough(creatureX, creatureY, playerX, playerY, 5) then
         creature:SetHomePosition(creatureX, creatureY, creatureZ, creatureO)
         creature:AttackStart(player)
@@ -213,8 +304,24 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature)
                                                        playerX,
                                                        playerY
                                                      )
+        if player:GetMapId() ~= creature:GetMapId() then -- {{{
+            -- if the player is on the border between one map and another while
+            -- the creatures are chasing them, then the creature will get stuck
+            -- on the border and not be able to cross over. This is a problem
+            -- because the creature will not be able to attack the player and
+            -- the player will not be able to attack the creature. So, if the
+            -- player and the creature are on different maps, then just despawn
+            -- the creature and attempt to respawn it on the player's map.
+            print("player and creature are on different maps, respawning")
+            player:SetData("num-ambushers", player:GetData("num-ambushers") - 1)
+            Ambush.addCreatureToQueue(player, creature:GetEntry(), creature:GetLevel(), creature:GetLevel(), false) -- setting isRare to false because it doesn't matter which queue the creature spawns in
+            player:RegisterEvent(Ambush.spawnCreature, 1000, 1)
+            creature:DespawnOrUnsummon(0)
+        end -- }}}
+
         if Movement.getLazyDistance(creatureX, creatureY, targetX, targetY) > CREATURE_MAX_DISTANCE then
-            print("too far away, despawning")
+            print(Movement.getLazyDistance(creatureX, creatureY, targetX, targetY) .." yards is too far away, despawning")
+            player:SetData("num-ambushers", player:GetData("num-ambushers") - 1)
             creature:DespawnOrUnsummon(0)
         end
         local targetZ = creature:GetMap():GetHeight(targetX, targetY)
@@ -222,11 +329,39 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature)
         creature:MoveTo(math.random(0, 4294967295), targetX, targetY, targetZ)
         creature:RegisterEvent(Ambush.chasePlayer, 1000, 1)
     end
-end
+end -- }}}
+
+function Ambush.onCreatureDeath(event, killer, creature) -- {{{
+    print("on creature death")
+    owning_player_ID = creature:GetData("ambush-chase-target") or nil
+    if owning_player_ID then
+        local player = GetPlayerByGUID(owning_player_ID)
+        if player then
+            if player:GetData("is-in-boss-fight") then
+                print("player no longer in a boss fight")
+                player:SetData("is-in-boss-fight", false)
+            else
+                local numAmbushers = player:GetData("num-ambushers") or 1
+                if    numAmbushers > 0 then
+                    print("setting numAmbushers to " .. numAmbushers - 1)
+                    player:SetData("num-ambushers", numAmbushers - 1)
+                end
+            end
+        end
+    end
+end -- }}}
+
+---------------------------------------------------------------------------------------------------
 
 function Ambush.setupPlayer(event, player)
     player:SetData( "queue", {} )
+    player:SetData( "rare-queue", {} )
+    player:SetData( "num-ambushers", 0 )
 end
 
 PLAYER_EVENT_ON_LOGIN = 3
-RegisterPlayerEvent(PLAYER_EVENT_ON_LOGIN, Ambush.setupPlayer)
+PLAYER_EVENT_ON_KILL_CREATURE = 7
+RegisterPlayerEvent(PLAYER_EVENT_ON_LOGIN,  Ambush.setupPlayer)
+RegisterPlayerEvent(PLAYER_EVENT_ON_KILL_CREATURE, Ambush.onCreatureDeath, 0)
+
+---------------------------------------------------------------------------------------------------
