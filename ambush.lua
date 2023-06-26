@@ -86,7 +86,7 @@ function Ambush.pushToAmbushQueue(query) -- {{{
     local LEVEL_MAX = 0 -- differential between player level and monster level
     local LEVEL_MIN = 0 -- MAKE SURE YOU ALSO SET IN setup[Solo/Group]RareQueue()
     local isRare = false
-    local MaxQueueSize = 25
+    local MaxQueueSize = 8
 
     local creatures = {}
     if query then
@@ -115,7 +115,7 @@ function Ambush.pushToAmbushQueue(query) -- {{{
         local creature
         for i = 1, MaxQueueSize do
             creature = table.remove(creatures, math.random(#creatures))
-            table.insert(tempTable, creatures)
+            table.insert(tempTable, creature)
         end
         creatures = tempTable
     end -- }}}
@@ -164,7 +164,8 @@ function Ambush.addCreatureToQueue(player, creatureId, minLevel, maxLevel, isRar
                        minLevel = minLevel,
                        maxLevel = maxLevel,
                      }
-    local tempTable[1] = creature
+    local tempTable = {}
+    tempTable[1] = creature
     for k, v in player:GetData(queueType) do
         tempTable[k + 1] = v
     end
@@ -267,25 +268,33 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
                                       -- DISTNACE FROM THE MIDPOINT BETWEEN THE PLAYER AND THE
                                       -- CREATURE
     local     CREATURE_MAX_DISTANCE    = creature:GetData("ambush-max-distance") or 60
-    local         WANDER_RADIUS        = creature:GetData("wander-radius") or 10
-    local WANDER_RADIUS_INCREASE_DELAY = 5000 ----- time between each increase in wander radius
+    local         WANDER_RADIUS        = creature:GetData("wander-radius") or 30
+    local     WANDER_ROTATION_DELAY    = 2000 -------- time between each new waypoint on the circle
     local            playerID          = creature:GetData("ambush-chase-target") -- required
-    local             player           = GetPlayerByGUID(playerID)
+    local            player            = GetPlayerByGUID(playerID)
+    local            playerX,
+                     playerY           = player:GetLocation()
     local           creatureX,
                     creatureY,
                     creatureZ,
                     creatureO          = creature:GetLocation()
 
-    if player:IsDead() or not player:IsStandState() then
-        print("wandering")
+    if player:IsDead() or not player:IsStandState() then -- {{{
+        print("orbiting")
         creature:MoveClear()
         creature:SetHomePosition(creatureX, creatureY, creatureZ, creatureO)
-        creature:MoveRandom(WANDER_RADIUS)
-        creature:SetData("wander-radius", WANDER_RADIUS)
-        creature:RegisterEvent(Ambush.chasePlayer, WANDER_RADIUS_INCREASE_DELAY, 1)
+        local angle = Movement.getInitialAngle(playerX, playerY, creatureX, creatureY)
+        local x, y  = Movement.getOrbitPosition( playerX, playerY,
+                                                 WANDER_RADIUS,
+                                                 creature:GetSpeed(1),
+                                                 WANDER_ROTATION_DELAY,
+                                                 angle
+                                               )
+        creature:MoveTo(math.random(0, 4294967295), x, y, creature:GetMap():GetHeight(x, y))
+        creature:RegisterEvent(Ambush.chasePlayer, WANDER_ROTATION_DELAY, 1)
         return
-    end
-    local playerX, playerY = player:GetLocation()
+    end -- }}}
+
     if Movement.isCloseEnough(creatureX, creatureY, playerX, playerY, 5) then
         creature:SetHomePosition(creatureX, creatureY, creatureZ, creatureO)
         creature:AttackStart(player)
@@ -295,7 +304,7 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
                                                        playerX,
                                                        playerY
                                                      )
-        if player:GetMapID() ~= creature:GetMapID() then -- {{{
+        if player:GetMapId() ~= creature:GetMapId() then -- {{{
             -- if the player is on the border between one map and another while
             -- the creatures are chasing them, then the creature will get stuck
             -- on the border and not be able to cross over. This is a problem
