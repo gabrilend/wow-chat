@@ -224,8 +224,11 @@ function Ambush.randomSpawn(player, isRare) -- {{{
     end
 
     if creatureId ~= 0 then
+        local spawnFunction
+        if player:IsMoving() then spawnFunction = Movement.getArcSpawnPosition
+                             else spawnFunction = Movement.getPlusSpawnPosition end
         local x, y, z, o = player:GetLocation()
-              x, y       = Movement.getPlusSpawnPosition(x, y, ambush_min_distance, ambush_max_distance)
+              x, y       = spawnFunction(x, y, ambush_min_distance, ambush_max_distance, o)
                     z    = player:GetMap():GetHeight(x, y)
                        o = math.random(0, 6.28)
         local creature = player:SpawnCreature(creatureId, x, y, z, o,
@@ -239,7 +242,7 @@ function Ambush.randomSpawn(player, isRare) -- {{{
             local tries = 0
             while creature:IsInWater() and tries < 3 do
                 tries = tries + 1
-                x, y = Movement.getPlusSpawnPosition(x, y, ambush_min_distance, ambush_max_distance)
+                x, y = spawnFunction(x, y, ambush_min_distance, ambush_max_distance, o)
                 z    = player:GetMap():GetHeight(x, y)
                 creature:NearTeleport(x, y, z, o)
             end

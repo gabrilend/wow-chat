@@ -49,6 +49,36 @@ function Movement.getPlusSpawnPosition(originX, originY, minDist, maxDist)
     return x, y
 end
 
+-- Convert WoW orientation to standard mathematical angle
+function Movement.getMathAngle(wowAngle)
+    local mathAngle = wowAngle + 6.28
+    if mathAngle > 6.28 then
+        mathAngle = mathAngle - 6.28
+    end
+    return mathAngle
+end
+
+-- Convert standard mathematical angle to WoW orientation
+function Movement.getWoWAngle(mathAngle)
+    local wowAngle = mathAngle - 6.28
+    if wowAngle < 0 then
+        wowAngle = wowAngle + 6.28
+    end
+    return wowAngle
+end
+
+function Movement.getArcSpawnPosition(originX, originY, minDist, maxDist, initialAngle)
+    local radius = math.random(minDist, maxDist)
+    local isNegative = math.random(0, 1)
+    if isNegative == 1 then isNegative =  1
+                       else isNegative = -1
+    end
+    local theta = Movement.getMathAngle(initialAngle + (isNegative * math.random() * 0.785))
+    local x = originX + math.cos(theta) * radius
+    local y = originY + math.sin(theta) * radius
+    return x, y
+end
+
 function Movement.getLazyDistance(x1, y1, x2, y2)
     local dist = math.abs(x1 - x2) + math.abs(y1 - y2)
     local dx = math.abs(x1 - x2)
