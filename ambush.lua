@@ -251,10 +251,15 @@ function Ambush.randomSpawn(player, isRare) -- {{{
             -- and despawn the creature
             -- is-wrong-z check {{{
             local tries = 0
+            local minDist = ambush_min_distance
+            local maxDist = ambush_max_distance
             while ( creature:GetMap():GetHeight(x,y) > player:GetZ() + 15 or
                     creature:GetMap():GetHeight(x,y) < player:GetZ() - 15 ) and tries < 3 do
                 tries = tries + 1
-                x, y = spawnFunction(x, y, ambush_min_distance, ambush_max_distance, o)
+                minDist = minDist / 2
+                maxDist = maxDist / 2
+                print("creature is too high/low, trying again with new distance: " .. minDist .. " - " .. maxDist)
+                x, y = spawnFunction(x, y, minDist, maxDist, o)
                 z    = player:GetMap():GetHeight(x, y)
                 creature:NearTeleport(x, y, z, o)
             end
