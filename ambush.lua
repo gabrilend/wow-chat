@@ -193,8 +193,8 @@ end -- }}}
 ---------------------------------------------------------------------------------------------------
 
 function Ambush.randomSpawn(player, isRare) -- {{{
-    local ambush_min_distance = 60
-    local ambush_max_distance = 75
+    local ambush_min_distance = 75
+    local ambush_max_distance = 100
     local queueType
     local corpseDespawnType
     local corpseDespawnTimer
@@ -215,13 +215,7 @@ function Ambush.randomSpawn(player, isRare) -- {{{
     local creatureId  = table.remove(playerQueue, randInt)
     player:SetData(queueType, playerQueue)
 
-    if isRare then
-        print("Rare creature spawn: " .. creatureId)
-        player:SendBroadcastMessage("A dark rustling alerts you to a dangerous presence. Keep a lookout.")
-    else
-        print("Ambush! Watch out, here comes " .. creatureId .. "!")
-        player:SendBroadcastMessage("Ambush! Watch out, here comes " .. creatureId .. "!")
-    end
+
 
     if creatureId ~= 0 then
         local spawnFunction
@@ -252,10 +246,38 @@ function Ambush.randomSpawn(player, isRare) -- {{{
             end
             --- }}}
 
+            -- check if the Z level is weird. if it is, then try 3 times to find
+            -- a new spawn location. if one cannot be found, then just give up
+            -- and despawn the creature
+            -- is-wrong-z check {{{
+            local tries = 0
+            while ( creature:GetMap():GetHeight(x,y) > player:GetZ() + 15 or
+                    creature:GetMap():GetHeight(x,y) < player:GetZ() - 15 ) and tries < 3 do
+                tries = tries + 1
+                x, y = spawnFunction(x, y, ambush_min_distance, ambush_max_distance, o)
+                z    = player:GetMap():GetHeight(x, y)
+                creature:NearTeleport(x, y, z, o)
+            end
+            if tries == 3 then
+                print("cannot find an acceptable spawn location - creature is too high/low")
+                creature:DespawnOrUnsummon(0)
+                return
+            end
+            --- }}}
+            if isRare then
+                print("Rare creature spawn: " .. creatureId)
+                player:SendBroadcastMessage("A dark rustling alerts you to a dangerous presence. Keep a lookout.")
+            else
+                print("Ambush! Watch out, here comes " .. creatureId .. "!")
+                player:SendBroadcastMessage("Ambush! Watch out, here comes " .. creatureId .. "!")
+            end
+
             creature:SetData("ambush-chase-target", playerID)
             creature:SetData("ambush-max-distance", ambush_max_distance)
-            if isRare then player:SetData("is-in-boss-fight", true)
-                      else player:SetData("num-ambushers", player:GetData("num-ambushers") + 1)
+            if isRare then   player:SetData("is-in-boss-fight", true)
+                           creature:SetData("is-rare", true)
+                      else   player:SetData("num-ambushers", player:GetData("num-ambushers") + 1)
+                           creature:SetData("is-rare", false)
             end
             creature:RegisterEvent(Ambush.chasePlayer, 1000, 1)
         end
@@ -301,6 +323,7 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
     if Movement.isCloseEnough(creatureX, creatureY, playerX, playerY, 5) then
         creature:SetHomePosition(creatureX, creatureY, creatureZ, creatureO)
         creature:AttackStart(player)
+        creature:RegisterEvent(Ambush.inCombatCheck, 3000, 1)
     else
         local targetX, targetY = Movement.getMidpoint( creature:GetX(),
                                                        creature:GetY(),
@@ -324,7 +347,9 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
 
         if Movement.getLazyDistance(creatureX, creatureY, targetX, targetY) > CREATURE_MAX_DISTANCE then
             print(Movement.getLazyDistance(creatureX, creatureY, targetX, targetY) .." yards is too far away, despawning")
-            player:SetData("num-ambushers", player:GetData("num-ambushers") - 1)
+            if creature:GetData("is-rare") then player:SetData("is-in-boss-fight", false)
+                                           else player:SetData("num-ambushers", player:GetData("num-ambushers") - 1)
+            end
             creature:DespawnOrUnsummon(0)
         end
         local targetZ = creature:GetMap():GetHeight(targetX, targetY)
@@ -354,6 +379,31 @@ function Ambush.onCreatureDeath(event, killer, creature) -- {{{
     end
 end -- }}}
 
+function Ambush.inCombatCheck(event, delay, repeats, creature) -- {{{
+    print("in combat check")
+    if creature:IsInCombat() then
+        print("in combat")
+        creature:RegisterEvent(Ambush.inCombatCheck, 3000, 1)
+    else
+        print("not in combat")
+        owning_player_ID = creature:GetData("ambush-chase-target") or nil
+        if owning_player_ID then
+            local player = GetPlayerByGUID(owning_player_ID)
+            if player then
+                if player:GetData("is-in-boss-fight") and creature:GetData("is-rare") then
+                    print("player no longer in a boss fight")
+                    player:SetData("is-in-boss-fight", false)
+                else
+                    local numAmbushers = player:GetData("num-ambushers") or 1
+                    if    numAmbushers > 0 then
+                        print("setting numAmbushers to " .. numAmbushers - 1)
+                        player:SetData("num-ambushers", numAmbushers - 1)
+                    end
+                end
+            end
+        end
+    end
+end -- }}}
 ---------------------------------------------------------------------------------------------------
 
 function Ambush.setupPlayer(event, player)
