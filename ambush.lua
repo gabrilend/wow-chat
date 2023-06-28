@@ -370,11 +370,12 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
 end -- }}}
 
 function Ambush.onCreatureDeath(event, killer, creature) -- {{{
-    owning_player_ID = creature:GetData("ambush-chase-target") or nil
+    local owning_player_ID = creature:GetData("ambush-chase-target") or nil
+    local isRare           = creature:GetData("is-rare") or false
     if owning_player_ID then
         local player = GetPlayerByGUID(owning_player_ID)
         if player then
-            if player:GetData("is-in-boss-fight") then
+            if isRare then
                 player:SetData("is-in-boss-fight", false)
             else
                 local numAmbushers = player:GetData("num-ambushers") or 1
