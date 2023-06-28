@@ -40,7 +40,7 @@ Ambush.BANNED_CREATURE_IDS = { 17887, 19416, 2673,  3569,  16422, 16423, -- {{{
                                30960, 31042, 31141, 31274, 31321, 31325,
                                31326, 31327, 31468, 31554, 31555, 31671,
                                31681, 31692, 31798, 32161, 32767, 32769,
-                               33289
+                               33289, 3617,  6033,
                              } -- }}}
 
 Ambush.BANNED_RARE_IDS = { 0, -- {{{
@@ -87,26 +87,26 @@ function Ambush.pushToAmbushQueue(query) -- {{{
     local LEVEL_MIN = 0 -- MAKE SURE YOU ALSO SET IN setup[Solo/Group]RareQueue()
     local isRare = false
     local MaxQueueSize = 8
+    local queueType = ""
+    local next = next
 
     local creatures = {}
     if query then
         -- if creature is rare or rare elite
         if query:GetUInt32(3) == 4 or
-           query:GetUInt32(3) == 2 then isRare = true
-                                   else isRare = false end
+           query:GetUInt32(3) == 2 then isRare = true  queueType = "rare-queue"
+                                   else isRare = false queueType = "queue"
+        end
         repeat
             local creature = {
-                id       = query:GetUInt32(0),
-                minLevel = query:GetUInt32(1),
-                maxLevel = query:GetUInt32(2),
+                  id       = query:GetUInt32(0),
+                  minLevel = query:GetUInt32(1),
+                  maxLevel = query:GetUInt32(2),
             }
             if not Ambush.isCreatureBanned(creature.id, isRare) then
                 table.insert(creatures, creature)
             end
         until not query:NextRow()
-    else
-        print("no query found wtf")
-        return
     end
 
     if #creatures > MaxQueueSize then -- {{{
@@ -120,6 +120,11 @@ function Ambush.pushToAmbushQueue(query) -- {{{
         creatures = tempTable
     end -- }}}
 
+    if #creatures == 0 then -- {{{
+        print("no creatures found")
+        queueType = "rare-queue" -- there will always be normal monsters, soooo...
+    end -- }}}
+
     all_players = { alliance = GetPlayersInWorld(0, false),
                     horde    = GetPlayersInWorld(1, false),
                     neutral  = GetPlayersInWorld(2, false)
@@ -128,6 +133,12 @@ function Ambush.pushToAmbushQueue(query) -- {{{
     -- for each player currently logged in
     for _, faction in pairs(all_players) do
         for _, player in pairs(faction) do
+            if #creatures == 0 -- {{{
+                and next(player:GetData(queueType)) == nil then
+                player:SetData(queueType, {0})
+                player:RegisterEvent(Ambush.spawnAndAttackPlayer, 1000, 1)
+                return
+            end -- }}}
             local playerLevel = player:GetLevel()
             if playerLevel ~= 0 then
                 -- for each creature that we just queried
@@ -135,16 +146,10 @@ function Ambush.pushToAmbushQueue(query) -- {{{
                     -- if this creature is appropriate for this player
                     if playerLevel >= creature.minLevel - LEVEL_MIN and
                        playerLevel <= creature.maxLevel + LEVEL_MAX then
-                        -- queue this creature for this player
-                        if isRare then
-                            tempTable = player:GetData("rare-queue")
-                            table.insert(tempTable, creature.id)
-                            player:SetData("rare-queue", tempTable)
-                        else
-                            tempTable = player:GetData("queue")
-                            table.insert(tempTable, creature.id)
-                            player:SetData("queue", tempTable)
-                        end
+
+                          tempTable = player:GetData(queueType)
+                          table.insert(tempTable, creature.id)
+                          player:SetData(queueType, tempTable)
                     end
                 end
             else
@@ -310,7 +315,6 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
                     creatureO          = creature:GetLocation()
 
     if player:IsDead() or not player:IsStandState() then -- {{{
-        print("orbiting")
         creature:MoveClear()
         creature:SetHomePosition(creatureX, creatureY, creatureZ, creatureO)
         local angle = Movement.getInitialAngle(playerX, playerY, creatureX, creatureY)
@@ -365,18 +369,15 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
 end -- }}}
 
 function Ambush.onCreatureDeath(event, killer, creature) -- {{{
-    print("on creature death")
     owning_player_ID = creature:GetData("ambush-chase-target") or nil
     if owning_player_ID then
         local player = GetPlayerByGUID(owning_player_ID)
         if player then
             if player:GetData("is-in-boss-fight") then
-                print("player no longer in a boss fight")
                 player:SetData("is-in-boss-fight", false)
             else
                 local numAmbushers = player:GetData("num-ambushers") or 1
                 if    numAmbushers > 0 then
-                    print("setting numAmbushers to " .. numAmbushers - 1)
                     player:SetData("num-ambushers", numAmbushers - 1)
                 end
             end
@@ -385,23 +386,18 @@ function Ambush.onCreatureDeath(event, killer, creature) -- {{{
 end -- }}}
 
 function Ambush.inCombatCheck(event, delay, repeats, creature) -- {{{
-    print("in combat check")
     if creature:IsInCombat() then
-        print("in combat")
         creature:RegisterEvent(Ambush.inCombatCheck, 3000, 1)
     else
-        print("not in combat")
         owning_player_ID = creature:GetData("ambush-chase-target") or nil
         if owning_player_ID then
             local player = GetPlayerByGUID(owning_player_ID)
             if player then
                 if player:GetData("is-in-boss-fight") and creature:GetData("is-rare") then
-                    print("player no longer in a boss fight")
                     player:SetData("is-in-boss-fight", false)
                 else
                     local numAmbushers = player:GetData("num-ambushers") or 1
                     if    numAmbushers > 0 then
-                        print("setting numAmbushers to " .. numAmbushers - 1)
                         player:SetData("num-ambushers", numAmbushers - 1)
                     end
                 end
