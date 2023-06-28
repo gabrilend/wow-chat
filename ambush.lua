@@ -329,7 +329,8 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
         return
     end -- }}}
 
-    if Movement.isCloseEnough(creatureX, creatureY, playerX, playerY, 5) then
+    if Movement.isCloseEnough(creatureX, creatureY, playerX, playerY, 5)
+    or creature:IsInCombat() then
         creature:SetHomePosition(creatureX, creatureY, creatureZ, creatureO)
         creature:AttackStart(player)
         creature:RegisterEvent(Ambush.inCombatCheck, 3000, 1)
