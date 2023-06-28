@@ -40,7 +40,7 @@ Ambush.BANNED_CREATURE_IDS = { 17887, 19416, 2673,  3569,  16422, 16423, -- {{{
                                30960, 31042, 31141, 31274, 31321, 31325,
                                31326, 31327, 31468, 31554, 31555, 31671,
                                31681, 31692, 31798, 32161, 32767, 32769,
-                               33289, 3617,  6033,
+                               33289, 3617,  6033,  5055,
                              } -- }}}
 
 Ambush.BANNED_RARE_IDS = { 0, -- {{{
@@ -198,8 +198,8 @@ end -- }}}
 ---------------------------------------------------------------------------------------------------
 
 function Ambush.randomSpawn(player, isRare) -- {{{
-    local ambush_min_distance = 75
-    local ambush_max_distance = 100
+    local ambush_min_distance = 120
+    local ambush_max_distance = 160
     local queueType
     local corpseDespawnType
     local corpseDespawnTimer
@@ -259,7 +259,7 @@ function Ambush.randomSpawn(player, isRare) -- {{{
             local minDist = ambush_min_distance
             local maxDist = ambush_max_distance
             while ( creature:GetMap():GetHeight(x,y) > player:GetZ() + 15 or
-                    creature:GetMap():GetHeight(x,y) < player:GetZ() - 15 ) and tries < 3 do
+                    creature:GetMap():GetHeight(x,y) < player:GetZ() - 15 ) and tries < 5 do
                 tries = tries + 1
                 minDist = minDist / 2
                 maxDist = maxDist / 2
@@ -300,19 +300,18 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
     if creature:IsDead() then
         return
     end
-                                      -- DISTNACE FROM THE MIDPOINT BETWEEN THE PLAYER AND THE
-                                      -- CREATURE
-    local     CREATURE_MAX_DISTANCE    = creature:GetData("ambush-max-distance") or 60
-    local         WANDER_RADIUS        = creature:GetData("wander-radius") or 30
-    local     WANDER_ROTATION_DELAY    = 2000 -------- time between each new waypoint on the circle
-    local            playerID          = creature:GetData("ambush-chase-target") -- required
-    local            player            = GetPlayerByGUID(playerID)
-    local            playerX,
-                     playerY           = player:GetLocation()
-    local           creatureX,
-                    creatureY,
-                    creatureZ,
-                    creatureO          = creature:GetLocation()
+    local    ATTACK_DISTANCE    = 30
+    local CREATURE_MAX_DISTANCE = creature:GetData("ambush-max-distance") or 60
+    local     WANDER_RADIUS     = creature:GetData("wander-radius") or 30
+    local WANDER_ROTATION_DELAY = 2000 -------- time between each new waypoint on the circle
+    local        playerID       = creature:GetData("ambush-chase-target") -- required
+    local        player         = GetPlayerByGUID(playerID)
+    local        playerX,
+                 playerY        = player:GetLocation()
+    local       creatureX,
+                creatureY,
+                creatureZ,
+                creatureO       = creature:GetLocation()
 
     if player:IsDead() or not player:IsStandState() then -- {{{
         creature:MoveClear()
@@ -329,7 +328,7 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
         return
     end -- }}}
 
-    if Movement.isCloseEnough(creatureX, creatureY, playerX, playerY, 5)
+    if Movement.isCloseEnough(creatureX, creatureY, playerX, playerY, ATTACK_DISTANCE)
     or creature:IsInCombat() then
         creature:SetHomePosition(creatureX, creatureY, creatureZ, creatureO)
         creature:AttackStart(player)
@@ -417,7 +416,7 @@ end
 
 PLAYER_EVENT_ON_LOGIN = 3
 PLAYER_EVENT_ON_KILL_CREATURE = 7
-RegisterPlayerEvent(PLAYER_EVENT_ON_LOGIN,  Ambush.setupPlayer)
+RegisterPlayerEvent(PLAYER_EVENT_ON_LOGIN, Ambush.setupPlayer)
 RegisterPlayerEvent(PLAYER_EVENT_ON_KILL_CREATURE, Ambush.onCreatureDeath, 0)
 
 ---------------------------------------------------------------------------------------------------
