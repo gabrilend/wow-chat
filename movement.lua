@@ -1,15 +1,15 @@
 
 Movement = {}
 
-function Movement.getCircleSpawnPosition(originX, originY, minDist, maxDist)
+function Movement.getCircleSpawnPosition(originX, originY, minDist, maxDist) -- {{{
     local theta = math.random(0, 6.28)
     local radius = math.random(minDist, maxDist)
     x = originX + math.cos(theta) * radius
     y = originY + math.sin(theta) * radius
     return x, y
-end
+end -- }}}
 
-function Movement.getBoxSpawnPosition(originX, originY, minDist, maxDist)
+function Movement.getBoxSpawnPosition(originX, originY, minDist, maxDist) -- {{{
     randInt = math.random(1, 4)
     if randInt == 1 then
         x = originX + math.random( minDist,  maxDist)
@@ -26,11 +26,11 @@ function Movement.getBoxSpawnPosition(originX, originY, minDist, maxDist)
     end
 
     return x, y
-end
+end -- }}}
 
 -- this should make a rough circle around the player
 -- it's more like a plus shape but that's close enough
-function Movement.getPlusSpawnPosition(originX, originY, minDist, maxDist)
+function Movement.getPlusSpawnPosition(originX, originY, minDist, maxDist) -- {{{
     randInt = math.random(1, 4)
     if randInt == 1 then
         x = originX + math.random( minDist,  maxDist)
@@ -47,10 +47,10 @@ function Movement.getPlusSpawnPosition(originX, originY, minDist, maxDist)
     end
 
     return x, y
-end
+end -- }}}
 
 -- Convert WoW orientation to standard mathematical angle
-function Movement.getMathAngle(wowAngle)
+function Movement.getMathAngle(wowAngle) -- {{{
     local mathAngle = wowAngle + 6.28
     if mathAngle > 6.28 then
         mathAngle = mathAngle - 6.28
@@ -65,9 +65,9 @@ function Movement.getWoWAngle(mathAngle)
         wowAngle = wowAngle + 6.28
     end
     return wowAngle
-end
+end -- }}}
 
-function Movement.getArcSpawnPosition(originX, originY, minDist, maxDist, initialAngle)
+function Movement.getArcSpawnPosition(originX, originY, minDist, maxDist, initialAngle) -- {{{
     local radius = math.random(minDist, maxDist)
     local isNegative = math.random(0, 1)
     if isNegative == 1 then isNegative =  1
@@ -77,16 +77,16 @@ function Movement.getArcSpawnPosition(originX, originY, minDist, maxDist, initia
     local x = originX + math.cos(theta) * radius
     local y = originY + math.sin(theta) * radius
     return x, y
-end
+end -- }}}
 
-function Movement.getLazyDistance(x1, y1, x2, y2)
+function Movement.getLazyDistance(x1, y1, x2, y2) -- {{{
     local dist = math.abs(x1 - x2) + math.abs(y1 - y2)
     local dx = math.abs(x1 - x2)
     local dy = math.abs(y1 - y2)
     return dist, dx, dy
-end
+end -- }}}
 
-function Movement.getInitialAngle(originX, originY, monsterX, monsterY)
+function Movement.getInitialAngle(originX, originY, monsterX, monsterY) -- {{{
     -- Calculate the difference in x and y coordinates
     local dx = monsterX - originX
     local dy = monsterY - originY
@@ -95,9 +95,9 @@ function Movement.getInitialAngle(originX, originY, monsterX, monsterY)
     local angle = math.atan2(dy, dx)
 
     return angle
-end
+end -- }}}
 
-function Movement.getOrbitPosition(originX, originY, radius, speed, dt, initialAngle)
+function Movement.getOrbitPosition(originX, originY, radius, speed, dt, initialAngle) -- {{{
     -- Calculate the angular speed based on the monster's linear speed and the radius of the circle
     local angular_speed = speed / radius
 
@@ -109,42 +109,77 @@ function Movement.getOrbitPosition(originX, originY, radius, speed, dt, initialA
     local y = originY + math.sin(new_angle) * radius
 
     return x, y
-end
+end -- }}}
 
 -- calculates a position on the exact opposite side of the given position
 -- x1 and y1 are the pivot point
 -- x2 and y2 are the initial point
 -- diagram:
 -- (initialX, initialY) ---------> (pivotX, pivotY) ---------> (x, y)
-function Movement.getPositionOppositePoint(initialX, initialY, pivotX, pivotY)
+function Movement.getPositionOppositePoint(initialX, initialY, pivotX, pivotY) -- {{{
     x = initialX + ((pivotX - initialX) * 2)
     y = initialY + ((pivotY - initialY) * 2)
 
     return x, y
-end
+end -- }}}
 
-function Movement.getMidpoint(x1, y1, x2, y2)
+function Movement.getPositionInFrontOfPoint(x, y, o, dist) -- {{{
+    x = x + math.cos(o) * dist
+    y = y + math.sin(o) * dist
+
+    return x, y
+end -- }}}
+
+function Movement.getMidpoint(x1, y1, x2, y2) -- {{{
     x = (x1 + x2) / 2
     y = (y1 + y2) / 2
 
     return x, y
-end
+end -- }}}
+
+-- this function will take a position and an angle and generate a new position
+-- that is within 5 units on the Z axis. This is to prevent the monster from
+-- walking over very tall objects like hills and cliffs. If the target position
+-- is too high or low, it will attempt to turn left or right depending on
+-- whether o is greater or less than theta. theta represents the overall
+-- direction the NPC is moving toward, while o is it's current orientation - the
+-- difference between o and theta is no more than 0.39 radians - this is
+-- represented by thetaMin and thetaMax, two variables which hold the minimum
+-- and maximum values of the new o value.
+function Movement.generateNewWanderPosition(x, y, z, o, theta, mapID) -- {{{
+    local thetaMin = theta - 0.39
+    local thetaMax = theta + 0.39
+    local dir      = (math.random(-19, 19) / 100) + math.random()
+    local map      = GetMapById(mapID)
+
+    -- Modify direction if it's outside the theta range
+    if o + dir > thetaMax or o + dir < thetaMin then
+        dir = dir * -1
+    end
+    o = o + dir
+
+    local targetX, targetY = Movement.getPositionInFrontOfPoint(x, y, o, 10)
+    local targetZ = map:GetHeight(targetX, targetY)
+
+    -- Return generated new position and the new orientation.
+    return targetX, targetY, targetZ, o
+end -- }}}
 
 -- function to calculate the squared distance between two points
-function Movement.squaredDistance(x1, y1, x2, y2)
+function Movement.squaredDistance(x1, y1, x2, y2) -- {{{
     local dx = x2 - x1
     local dy = y2 - y1
     return dx * dx + dy * dy
-end
+end -- }}}
 
 -- function to normalize a vector
-function Movement.normalize(dx, dy)
+function Movement.normalize(dx, dy) -- {{{
     local length = math.sqrt(dx * dx + dy * dy)
     return dx / length, dy / length
-end
+end -- }}}
 
 -- function to find the closest point on the circle to the given point
-function Movement.nearestPointOnCircle(circleX, circleY, circleRadius, pointX, pointY)
+function Movement.nearestPointOnCircle(circleX, circleY, circleRadius, pointX, pointY) -- {{{
     -- calculate the direction vector from the circle center to the point
     local dx, dy = pointX - circleX, pointY - circleY
 
@@ -158,9 +193,9 @@ function Movement.nearestPointOnCircle(circleX, circleY, circleRadius, pointX, p
     local nearestX, nearestY = circleX + dx, circleY + dy
 
     return nearestX, nearestY
-end
+end -- }}}
 
-function Movement.isCloseEnough(x1, y1, x2, y2, dist)
+function Movement.isCloseEnough(x1, y1, x2, y2, dist) -- {{{
     return Movement.squaredDistance(x1, y1, x2, y2) <= dist * dist
-end
+end -- }}}
 

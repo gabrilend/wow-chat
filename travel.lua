@@ -102,7 +102,7 @@ function Travel.spawnAndTravel(player)
         local x, y, z, o = player:GetLocation()
               x, y       = Movement.getBoxSpawnPosition(x, y, 30, 45)
                     z    = player:GetMap():GetHeight(x, y)
-                       o = math.random(0, 6.28)
+                       o = math.random(0, 6) + math.random()
         local TEMPSUMMON_DEAD_DESPAWN  = 7          -- despawn when creature disappears
         local TEMPSUMMON_DESPAWN_TIMER = 300 * 1000 -- 5 minutes
         local traveller = player:SpawnCreature(travellerId, x, y, z, o,
@@ -118,9 +118,10 @@ function Travel.spawnAndTravel(player)
             playerX, playerY = player:GetLocation()
             x, y = Movement.getPositionOppositePoint(x, y, playerX, playerY)
             z    = player:GetMap():GetHeight(x, y)
-            traveller:MoveTo(math.random(0, 4294967295), x, y, z, o)
+            o    = traveller:GetO()
+            traveller:MoveTo(math.random(0, 4294967295), x, y, z)
             traveller:SetData("theta", o)
-            -- traveller:RegisterEvent(Travel.continueTravelling, 25000, 1)
+            traveller:RegisterEvent(Travel.continueTravelling, 25000, 1)
         end
     end
 end
@@ -128,34 +129,42 @@ end
 -- 1.57 radians = 90 degrees
 -- 0.78 radians = 45 degrees
 -- 0.39 radians = 22.5 degrees
+-- 0.19 radians = 11.25 degrees
 function Travel.continueTravelling(_eventID, _delay, _repeats, creature )
-    local player = creature:GetNearestPlayer(60, 0, 1)
-    if player == nil then
-        creature:DespawnOrUnsummon(0)
+    local player = creature:GetNearestPlayer(200)
+    if player == nil then creature:DespawnOrUnsummon(0)
     else
         local x, y, z, o = creature:GetLocation()
-        local theta      = creature:GetData("theta")
-        local thetaMin   = theta - 0.78
-        local thetaMax   = theta + 0.78
-        local dir        = math.random(-0.39, 0.39)
-        if o + dir > thetaMax or o + dir < thetaMin then
-            dir = dir * -1
-        end
-        o = o + dir
-        repeat
-            x, y = Movement.getPositionInFrontOfPoint(x, y, o , 5)
-            newZ = creature:GetMap():GetHeight(x, y)
-            if o > theta then
-                thetaMin = theta
-                theta    = thetaMax
-                thetaMax = thetaMax + 0.78
-        elseif o < theta then
-                thetaMax = theta
-                theta    = thetaMin
-                thetaMin = thetaMin - 0.78
-            end
-        until newZ > z + 10
+        local theta = creature:GetData("theta")
 
+        local count = 0
+        local targetX, targetY, targetZ, newO
+        repeat
+            targetX, targetY, targetZ, newO = Movement.generateNewWanderPosition(x, y, z, o, theta, creature:GetMapId())
+            count = count + 1
+            if count > 10 then
+                print("count exceeded, despawning creature")
+                creature:DespawnOrUnsummon(0)
+                return
+            end
+            if newO > theta then
+                theta = theta + 0.39
+            elseif newO < theta then
+                theta = theta - 0.39
+            end
+            creature:SetData("theta", theta)
+        until targetZ < z + 5 and targetZ > z - 5
+
+        creature:MoveClear()
+        creature:MoveTo(math.random(4294967295), targetX, targetY, targetZ)
+        creature:RegisterEvent(Travel.continueTravelling, math.random(2000, 4000), 1)
+    end
+end
+---------------------------------------------------------------------------------------------------
+
+function Travel.handleChat(event, player, message)
+    if message == "#travel" then
+        Travel.spawnAndTravel(player)
     end
 end
 
@@ -195,7 +204,7 @@ function Travel.getTravelerTypeMask(class)
     end
 end
 
--- probably not every vendor, but I tried to get as many as I could
+-- probably not every vendor, but I tried to get as many as I could -- {{{
 
 -- rel is a bitmask of faction relations: 1 = friendly to horde
 --                                        2 = friendly to alliance
@@ -341,6 +350,7 @@ local innkeepers  = { { id = 11118, minLevel = 5,  maxLevel = 25, rel = 3 },
                     }
 local consumables = { { id = 4581,  minLevel = 1,  maxLevel = 25, rel = 1 },
 
+                      { id = 8305,  minLevel = 3,  maxLevel = 20, rel = 3 },
                       { id = 20989, minLevel = 45, maxLevel = 60, rel = 3 },
                       { id = 12245, minLevel = 22, maxLevel = 27, rel = 3 },
                       { id = 28715, minLevel = 40, maxLevel = 80, rel = 3 },
@@ -356,7 +366,6 @@ local poisons     = { { id = 32641, minLevel = 20, maxLevel = 80, rel = 1 },
                     }
 local others      = { { id = 20980, minLevel = 30, maxLevel = 60, rel = 3 },
                       { id = 6368,  minLevel = 1,  maxLevel = 80, rel = 3 },
-                      { id = 7385,  minLevel = 1,  maxLevel = 80, rel = 3 },
                       { id = 29478, minLevel = 70, maxLevel = 80, rel = 3 },
                       { id = 29716, minLevel = 56, maxLevel = 56, rel = 3 },
                       { id = 28993, minLevel = 1,  maxLevel = 30, rel = 3 },
@@ -531,6 +540,7 @@ local questgivers = { { id = 15297, minLevel = 4,  maxLevel = 6,  rel = 1 },
                       { id = 9270,  minLevel = 48, maxLevel = 52, rel = 3 },
                     }
 --]]
+-- }}}
 
 Travel.travellers["Ammo"]        = { name = "Ammo",        list = ammo,        typeMask = 1   }
 Travel.travellers["Innkeepers"]  = { name = "Innkeepers",  list = innkeepers,  typeMask = 2   }
@@ -543,5 +553,7 @@ Travel.travellers["Ranged"]      = { name = "Ranged",      list = ranged,      t
 Travel.travellers["Armor"]       = { name = "Armor",       list = armor,       typeMask = 256 }
 Travel.travellers["Food"]        = { name = "Food",        list = food,        typeMask = 512 }
 
-local PLAYER_EVENT_ON_LOGIN = 3
+PLAYER_EVENT_ON_LOGIN = 3
+PLAYER_EVENT_ON_CHAT  = 18
 RegisterPlayerEvent(PLAYER_EVENT_ON_LOGIN, Travel.setupPlayer)
+RegisterPlayerEvent(PLAYER_EVENT_ON_CHAT,  Travel.handleChat)
