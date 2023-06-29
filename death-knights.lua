@@ -50,7 +50,7 @@ function DK.onFirstLogin(_eventID, player)
 end
 
 function DK.onLogin(_eventID, player)
-    if player:GetClass() ~= 6 and player:GetMapID() == 609 then
+    if player:GetClass() ~= 6 and player:GetMapId() == 609 then
         return
     end
     player:RegisterEvent(DK.teleportCheck, 2000, 1)

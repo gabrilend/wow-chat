@@ -258,13 +258,14 @@ function Ambush.randomSpawn(player, isRare) -- {{{
             local tries = 0 local TRIES_MAX = 5
             local minDist = ambush_min_distance
             local maxDist = ambush_max_distance
+            local playerX, playerY = player:GetLocation()
             while ( creature:GetMap():GetHeight(x,y) > player:GetZ() + 15 or
                     creature:GetMap():GetHeight(x,y) < player:GetZ() - 15 ) and tries < TRIES_MAX do
                 tries = tries + 1
                 minDist = minDist / 2
                 maxDist = maxDist / 2
                 print("creature is too high/low, trying again with new distance: " .. minDist .. " - " .. maxDist)
-                x, y = spawnFunction(x, y, minDist, maxDist, o)
+                x, y = spawnFunction(playerX, playerY, minDist, maxDist, o)
                 z    = player:GetMap():GetHeight(x, y)
                 creature:NearTeleport(x, y, z, o)
             end
