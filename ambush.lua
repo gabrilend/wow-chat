@@ -40,7 +40,7 @@ Ambush.BANNED_CREATURE_IDS = { 17887, 19416, 2673,  3569,  16422, 16423, -- {{{
                                30960, 31042, 31141, 31274, 31321, 31325,
                                31326, 31327, 31468, 31554, 31555, 31671,
                                31681, 31692, 31798, 32161, 32767, 32769,
-                               33289, 3617,  6033,  5055,
+                               33289, 3617,  6033,  5055,  5781,
                              } -- }}}
 
 Ambush.BANNED_RARE_IDS = { 0, -- {{{
@@ -255,11 +255,11 @@ function Ambush.randomSpawn(player, isRare) -- {{{
             -- a new spawn location. if one cannot be found, then just give up
             -- and despawn the creature
             -- is-wrong-z check {{{
-            local tries = 0
+            local tries = 0 local TRIES_MAX = 5
             local minDist = ambush_min_distance
             local maxDist = ambush_max_distance
             while ( creature:GetMap():GetHeight(x,y) > player:GetZ() + 15 or
-                    creature:GetMap():GetHeight(x,y) < player:GetZ() - 15 ) and tries < 5 do
+                    creature:GetMap():GetHeight(x,y) < player:GetZ() - 15 ) and tries < TRIES_MAX do
                 tries = tries + 1
                 minDist = minDist / 2
                 maxDist = maxDist / 2
@@ -268,7 +268,7 @@ function Ambush.randomSpawn(player, isRare) -- {{{
                 z    = player:GetMap():GetHeight(x, y)
                 creature:NearTeleport(x, y, z, o)
             end
-            if tries == 3 then
+            if tries == TRIES_MAX then
                 print("cannot find an acceptable spawn location - creature is too high/low")
                 creature:DespawnOrUnsummon(0)
                 return
