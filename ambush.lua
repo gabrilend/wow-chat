@@ -234,10 +234,11 @@ function Ambush.randomSpawn(player, isRare) -- {{{
                                               corpseDespawnType,
                                               corpseDespawnTimer)
         if creature then
+
+------ is-in-water check {{{
             -- check and make sure the creature did not spawn in the water
             -- if it did, then try 3 times to find a new spawn location.
             -- if one cannot be found, then just give up and despawn the creature
-            -- is-in-water check {{{
             local tries = 0
             while creature:IsInWater() and tries < 3 do
                 tries = tries + 1
@@ -251,10 +252,11 @@ function Ambush.randomSpawn(player, isRare) -- {{{
             end
             --- }}}
 
+------ is-wrong-z check {{{
             -- check if the Z level is weird. if it is, then try 3 times to find
             -- a new spawn location. if one cannot be found, then just give up
             -- and despawn the creature
-            -- is-wrong-z check {{{
+
             local tries = 0 local TRIES_MAX = 5
             local minDist = ambush_min_distance
             local maxDist = ambush_max_distance
@@ -275,6 +277,7 @@ function Ambush.randomSpawn(player, isRare) -- {{{
                 return
             end
             --- }}}
+
             if isRare then
                 print("Rare creature spawn: " .. creatureId)
                 player:SendBroadcastMessage("A dark rustling alerts you to a dangerous presence. Keep a lookout.")
@@ -296,6 +299,15 @@ function Ambush.randomSpawn(player, isRare) -- {{{
     end
 end -- }}}
 
+function Ambush.despawn(creature) -- {{{
+    local playerID = creature:GetData("ambush-chase-target")
+    local player   = GetPlayerByGUID(playerID)
+    if creature:GetData("is-rare") then player:SetData("is-in-boss-fight", false)
+                                   else player:SetData("num-ambushers", player:GetData("num-ambushers") - 1)
+    end
+    creature:DespawnOrUnsummon(0)
+end -- }}}
+
 ---------------------------------------------------------------------------------------------------
 
 function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
@@ -315,18 +327,34 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
                 creatureZ,
                 creatureO       = creature:GetLocation()
 
-    if player:IsDead() or not player:IsStandState() then -- {{{
+if not player:IsStandState() then -- {{{
+        local creatureMap = creature:GetMap()
         creature:MoveClear()
+        creature:AttackStop()
+        creature:ClearInCombat()
+        creature:SetAggroEnabled(false)
+        if creature:CanAggro() then print("can aggro") else print("cannot aggro") end
         creature:SetHomePosition(creatureX, creatureY, creatureZ, creatureO)
         local angle = Movement.getInitialAngle(playerX, playerY, creatureX, creatureY)
+        local dir   = creature:GetData("orbit-direction") if not dir then dir = 1 end
         local x, y  = Movement.getOrbitPosition( playerX, playerY,
                                                  WANDER_RADIUS,
                                                  creature:GetSpeed(1),
                                                  WANDER_ROTATION_DELAY,
-                                                 angle
-                                               )
-        creature:MoveTo(math.random(0, 4294967295), x, y, creature:GetMap():GetHeight(x, y))
+                                                 angle,
+                                                 dir )
+        if creatureMap:GetHeight(x, y) > creatureZ + 14 or
+           creatureMap:GetHeight(x, y) < creatureZ - 14 then
+            creature:SetData("orbit-direction", dir * -1)
+        end
+        creature:MoveTo(math.random(0, 4294967295), x, y, creatureMap:GetHeight(x, y))
         creature:RegisterEvent(Ambush.chasePlayer, WANDER_ROTATION_DELAY, 1)
+        return
+    end -- }}}
+
+if player:IsDead() then -- {{{
+        creature:MoveRandom(30)
+        creature:RegisterEvent(Ambush.chasePlayer, 5000, 1)
         return
     end -- }}}
 
@@ -341,7 +369,7 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
                                                        playerX,
                                                        playerY
                                                      )
-        if player:GetMapId() ~= creature:GetMapId() then -- {{{
+   if player:GetMapId() ~= creature:GetMapId() then -- {{{
             -- if the player is on the border between one map and another while
             -- the creatures are chasing them, then the creature will get stuck
             -- on the border and not be able to cross over. This is a problem
@@ -350,18 +378,14 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
             -- player and the creature are on different maps, then just despawn
             -- the creature and attempt to respawn it on the player's map.
             print("player and creature are on different maps, respawning")
-            player:SetData("num-ambushers", player:GetData("num-ambushers") - 1)
             Ambush.addCreatureToQueue(player, creature:GetEntry(), creature:GetLevel(), creature:GetLevel(), false) -- setting isRare to false because it doesn't matter which queue the creature spawns in
             player:RegisterEvent(Ambush.spawnCreature, 1000, 1)
-            creature:DespawnOrUnsummon(0)
+            Ambush.despawn(creature)
         end -- }}}
 
         if Movement.getLazyDistance(creatureX, creatureY, targetX, targetY) > CREATURE_MAX_DISTANCE then
             print(Movement.getLazyDistance(creatureX, creatureY, targetX, targetY) .." yards is too far away, despawning")
-            if creature:GetData("is-rare") then player:SetData("is-in-boss-fight", false)
-                                           else player:SetData("num-ambushers", player:GetData("num-ambushers") - 1)
-            end
-            creature:DespawnOrUnsummon(0)
+            Ambush.despawn(creature)
         end
         local targetZ = creature:GetMap():GetHeight(targetX, targetY)
 
@@ -395,7 +419,7 @@ function Ambush.inCombatCheck(event, delay, repeats, creature) -- {{{
     if not player then print("oops no player") return end
     if not player:IsStandState() then -- {{{
         creature:MoveHome()
-        creature:RegisterEvent(Ambush.chasePlayer, 4000, 1)
+        creature:RegisterEvent(Ambush.chasePlayer, 2000, 1)
         return
     end -- }}}
     if creature:IsInCombat() then

@@ -97,12 +97,12 @@ function Movement.getInitialAngle(originX, originY, monsterX, monsterY) -- {{{
     return angle
 end -- }}}
 
-function Movement.getOrbitPosition(originX, originY, radius, speed, dt, initialAngle) -- {{{
+function Movement.getOrbitPosition(originX, originY, radius, speed, dt, initialAngle, direction) -- {{{
     -- Calculate the angular speed based on the monster's linear speed and the radius of the circle
     local angular_speed = speed / radius
 
     -- Compute the new angle after dt seconds
-    local new_angle = initialAngle + angular_speed * dt
+    local new_angle = initialAngle + (angular_speed * dt * direction)
 
     -- Calculate the new position
     local x = originX + math.cos(new_angle) * radius
