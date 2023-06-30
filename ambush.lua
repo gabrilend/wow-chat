@@ -284,6 +284,7 @@ function Ambush.randomSpawn(player, isRare) -- {{{
             end
 
             creature:SetData("ambush-chase-target", playerID)
+            creature:SetData("wander-radius", 30)
             creature:SetData("ambush-max-distance", ambush_max_distance)
             if isRare then   player:SetData("is-in-boss-fight", true)
                            creature:SetData("is-rare", true)
@@ -333,7 +334,7 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
     or creature:IsInCombat() then
         creature:SetHomePosition(creatureX, creatureY, creatureZ, creatureO)
         creature:AttackStart(player)
-        creature:RegisterEvent(Ambush.inCombatCheck, 3000, 1)
+        creature:RegisterEvent(Ambush.inCombatCheck, 500, 1)
     else
         local targetX, targetY = Movement.getMidpoint( creature:GetX(),
                                                        creature:GetY(),
@@ -388,8 +389,17 @@ function Ambush.onCreatureDeath(event, killer, creature) -- {{{
 end -- }}}
 
 function Ambush.inCombatCheck(event, delay, repeats, creature) -- {{{
+    if not creature then print("oops creature dead") return end
+    SELECT_TARGET_NEAREST = 3
+    local player = creature:GetAITarget(SELECT_TARGET_NEAREST, true, 0, 30, 0)
+    if not player then print("oops no player") return end
+    if not player:IsStandState() then -- {{{
+        creature:MoveHome()
+        creature:RegisterEvent(Ambush.chasePlayer, 4000, 1)
+        return
+    end -- }}}
     if creature:IsInCombat() then
-        creature:RegisterEvent(Ambush.inCombatCheck, 3000, 1)
+        creature:RegisterEvent(Ambush.inCombatCheck, 500, 1)
     else
         owning_player_ID = creature:GetData("ambush-chase-target") or nil
         if owning_player_ID then
