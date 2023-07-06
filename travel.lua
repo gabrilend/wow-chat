@@ -94,6 +94,8 @@ function Travel.getRandomTravellerId(playerID, count)
     end
 end
 
+-- witches are thieves of youth. how dare they.
+
 function Travel.spawnAndTravel(player)
     print("A traveller appears...")
     player:SendBroadcastMessage("A traveller appears...")
@@ -526,6 +528,21 @@ local trainers    = {   -- horde warrior
                         -- neutral druid
                       { trainerID = 12042, minLevel = 61, maxLevel = 80, rel = 3, id = -10 },
                     }
+
+ local wep_trainers = { { id = 17005, minLevel = 1,  maxLevel = 80,  rel = 1 },
+                        { id = 16621, minLevel = 1,  maxLevel = 80,  rel = 1 },
+                        { id = 2704,  minLevel = 1,  maxLevel = 80,  rel = 1 },
+                        { id = 11868, minLevel = 1,  maxLevel = 80,  rel = 1 },
+                        { id = 11869, minLevel = 1,  maxLevel = 80,  rel = 1 },
+
+                        { id = 11865, minLevel = 1,  maxLevel = 80,  rel = 2 },
+                        { id = 11866, minLevel = 1,  maxLevel = 80,  rel = 2 },
+                        { id = 13084, minLevel = 1,  maxLevel = 80,  rel = 2 },
+                        { id = 16773, minLevel = 1,  maxLevel = 80,  rel = 2 },
+                        { id = 11867, minLevel = 1,  maxLevel = 80,  rel = 2 },
+
+                        { id = 20124, minLevel = 1,  maxLevel = 80,  rel = 3 },
+                     }
 
 --[[ nonfunctional for now
 local questgivers = { { id = 15297, minLevel = 4,  maxLevel = 6,  rel = 1 },

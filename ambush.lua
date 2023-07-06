@@ -1,4 +1,5 @@
 ---------------------------------------------------------------------------------------------------
+-- storage stuff
 
             Ambush = {} -- table to hold the functions.
 local AmbushQueues = {} -- table to hold monsters that are queued to attack.
@@ -47,6 +48,7 @@ Ambush.BANNED_RARE_IDS = { 0, -- {{{
                          } -- }}}
 
 ---------------------------------------------------------------------------------------------------
+-- periodic event function
 
 -- ranks: 0 = regular mob, 2 = rare elite, 4 = rare
 -- this function determines which queue to use when spawning a monster
@@ -75,6 +77,7 @@ function Ambush.spawnAndAttackPlayer(_eventID, _delay, _repeats, player) -- {{{
 end -- }}}
 
 ---------------------------------------------------------------------------------------------------
+-- queue construction functions
 
 -- this function generates an async sql query and calls pushToAmbushQueue() when it's done
 function Ambush.setupAmbushQueue(playerLevel, rank) -- {{{
@@ -178,8 +181,6 @@ function Ambush.addCreatureToQueue(player, creatureId, minLevel, maxLevel, isRar
 
 end -- }}}
 
----------------------------------------------------------------------------------------------------
-
 -- make sure this function is in the async callback function... it might take
 -- a while depending on how many banned creatures there are.
 function Ambush.isCreatureBanned(creatureId, isRare) -- {{{
@@ -196,6 +197,7 @@ function Ambush.isCreatureBanned(creatureId, isRare) -- {{{
 end -- }}}
 
 ---------------------------------------------------------------------------------------------------
+-- spawning functions
 
 function Ambush.randomSpawn(player, isRare) -- {{{
     local ambush_min_distance = 120
@@ -211,7 +213,7 @@ function Ambush.randomSpawn(player, isRare) -- {{{
     else
         queueType = "queue"
         corpseDespawnType  = 6
-        corpseDespawnTimer = 60 * 1000 -- 60 seconds
+        corpseDespawnTimer = 360 * 1000 -- 6 minutes
     end
 
     local  playerID   = player:GetGUID()
@@ -247,7 +249,7 @@ function Ambush.randomSpawn(player, isRare) -- {{{
                 creature:NearTeleport(x, y, z, o)
             end
             if tries == 3 then
-                creature:DespawnOrUnsummon(0)
+                Ambush.despawn(creature)
                 return
             end
             --- }}}
@@ -261,6 +263,10 @@ function Ambush.randomSpawn(player, isRare) -- {{{
             local minDist = ambush_min_distance
             local maxDist = ambush_max_distance
             local playerX, playerY = player:GetLocation()
+            local creatureMap = creature:GetMap() if creatureMap == nil then print("no creature map")
+                                                                             Ambush.despawn(creature)
+                                                                                         return end
+
             while ( creature:GetMap():GetHeight(x,y) > player:GetZ() + 15 or
                     creature:GetMap():GetHeight(x,y) < player:GetZ() - 15 ) and tries < TRIES_MAX do
                 tries = tries + 1
@@ -268,12 +274,12 @@ function Ambush.randomSpawn(player, isRare) -- {{{
                 maxDist = maxDist / 2
                 print("creature is too high/low, trying again with new distance: " .. minDist .. " - " .. maxDist)
                 x, y = spawnFunction(playerX, playerY, minDist, maxDist, o)
-                z    = player:GetMap():GetHeight(x, y)
+                z    = creature:GetMap():GetHeight(x, y)
                 creature:NearTeleport(x, y, z, o)
             end
             if tries == TRIES_MAX then
                 print("cannot find an acceptable spawn location - creature is too high/low")
-                creature:DespawnOrUnsummon(0)
+                Ambush.despawn(creature)
                 return
             end
             --- }}}
@@ -301,14 +307,21 @@ end -- }}}
 
 function Ambush.despawn(creature) -- {{{
     local playerID = creature:GetData("ambush-chase-target")
-    local player   = GetPlayerByGUID(playerID)
-    if creature:GetData("is-rare") then player:SetData("is-in-boss-fight", false)
-                                   else player:SetData("num-ambushers", player:GetData("num-ambushers") - 1)
-    end
+    if    playerID == nil then creature:DespawnOrUnsummon(0) return end
+    Ambush.deregister(creature)
     creature:DespawnOrUnsummon(0)
 end -- }}}
 
+function Ambush.deregister(creature) -- {{{
+    local playerID = creature:GetData("ambush-chase-target")
+    local player   = GetPlayerByGUID(playerID)
+    if     creature:GetData("is-rare") == true  then player:SetData("is-in-boss-fight", false)
+    elseif creature:GetData("is-rare") == false then player:SetData("num-ambushers", player:GetData("num-ambushers") - 1)
+    end
+end -- }}}
+
 ---------------------------------------------------------------------------------------------------
+-- combat functions
 
 function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
     if creature:IsDead() then
@@ -326,9 +339,11 @@ function Ambush.chasePlayer(_eventID, _delay, _repeats, creature) -- {{{
                 creatureY,
                 creatureZ,
                 creatureO       = creature:GetLocation()
+    local       creatureMap     = creature:GetMap() if not creatureMap then print("no creature map")
+                                                                           Ambush.despawn(creature)
+                                                                                         return end
 
-if not player:IsStandState() then -- {{{
-        local creatureMap = creature:GetMap()
+    if not player:IsStandState() then -- {{{
         creature:MoveClear()
         creature:AttackStop()
         creature:ClearInCombat()
@@ -352,7 +367,7 @@ if not player:IsStandState() then -- {{{
         return
     end -- }}}
 
-if player:IsDead() then -- {{{
+    if player:IsDead() then -- {{{
         creature:MoveRandom(30)
         creature:RegisterEvent(Ambush.chasePlayer, 5000, 1)
         return
@@ -369,7 +384,7 @@ if player:IsDead() then -- {{{
                                                        playerX,
                                                        playerY
                                                      )
-   if player:GetMapId() ~= creature:GetMapId() then -- {{{
+   if player:GetMapId() ~= creatureMap:GetMapId() then -- {{{
             -- if the player is on the border between one map and another while
             -- the creatures are chasing them, then the creature will get stuck
             -- on the border and not be able to cross over. This is a problem
@@ -387,7 +402,7 @@ if player:IsDead() then -- {{{
             print(Movement.getLazyDistance(creatureX, creatureY, targetX, targetY) .." yards is too far away, despawning")
             Ambush.despawn(creature)
         end
-        local targetZ = creature:GetMap():GetHeight(targetX, targetY)
+        local targetZ = creatureMap:GetHeight(targetX, targetY)
 
         creature:MoveTo(math.random(0, 4294967295), targetX, targetY, targetZ)
         creature:RegisterEvent(Ambush.chasePlayer, 1000, 1)
@@ -403,7 +418,7 @@ function Ambush.onCreatureDeath(event, killer, creature) -- {{{
             if isRare then
                 player:SetData("is-in-boss-fight", false)
             else
-                local numAmbushers = player:GetData("num-ambushers") or 1
+                local numAmbushers = player:GetData("num-ambushers")
                 if    numAmbushers > 0 then
                     player:SetData("num-ambushers", numAmbushers - 1)
                 end
@@ -412,6 +427,7 @@ function Ambush.onCreatureDeath(event, killer, creature) -- {{{
     end
 end -- }}}
 
+-- this function checks if the nearest player is in combat, not necessarily the target
 function Ambush.inCombatCheck(event, delay, repeats, creature) -- {{{
     if not creature then print("oops creature dead") return end
     SELECT_TARGET_NEAREST = 3
@@ -422,31 +438,18 @@ function Ambush.inCombatCheck(event, delay, repeats, creature) -- {{{
         creature:RegisterEvent(Ambush.chasePlayer, 2000, 1)
         return
     end -- }}}
-    if creature:IsInCombat() then
+    if  creature:IsInCombat() then
         creature:RegisterEvent(Ambush.inCombatCheck, 500, 1)
     else
-        owning_player_ID = creature:GetData("ambush-chase-target") or nil
-        if owning_player_ID then
-            local player = GetPlayerByGUID(owning_player_ID)
-            if player then
-                if player:GetData("is-in-boss-fight") and creature:GetData("is-rare") then
-                    player:SetData("is-in-boss-fight", false)
-                else
-                    local numAmbushers = player:GetData("num-ambushers") or 1
-                    if    numAmbushers > 0 then
-                        player:SetData("num-ambushers", numAmbushers - 1)
-                    end
-                end
-            end
-        end
+        Ambush.deregister(creature)
     end
 end -- }}}
 ---------------------------------------------------------------------------------------------------
 
 function Ambush.setupPlayer(event, player)
-    player:SetData( "queue", {} )
-    player:SetData( "rare-queue", {} )
-    player:SetData( "num-ambushers", 0 )
+    player:SetData(   "queue",     {} )
+    player:SetData( "rare-queue",  {} )
+    player:SetData("num-ambushers", 0 )
 end
 
 PLAYER_EVENT_ON_LOGIN = 3

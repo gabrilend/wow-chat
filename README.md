@@ -1,13 +1,14 @@
 # wow-chat
-collection of eluna scripts for azerothcore that do stuff. the goal is to turn WoW into a roguelike with an emphasis on chatting with your friends.
+first read periodic_events.lua.
+Understand it, then move on to treasure.lua.
+Then, check out traveller.lua
+and finally ambush.lua.
+Everything else is non-functional.
 
-I'm picturing a server where you can chat with your friends and it'd spawn 
-monsters for you to fight and you could level up without going anywhere. That 
-way people could just pick an environment they liked (like a background in a 
-chat application) and then it'd spawn monsters you could fight based on what 
-"mood" it estimated you were in. Like the game would react to your chat messages
-by spawning in quests, monsters, even PvP opportunities. Sorta like guided 
-storytelling. And it'd have all the variables it needed to generate randomized 
-NPCs and quests - just spawn in the objective somewhere over that hill and tell 
-the player to get to it. It could develop long term meta stories that would be 
-interesting to engage with even while solo.
+Every time you see a function called from the "movement" or "tempo/tide"
+files, read the function you need and nothing more. There's functionality there
+that isn't needed yet, but was convenient to throw together at the time.
+
+well, tempo/tide you might need to read in entirety to understand. good luck <3
+
+PS: you'll appreciate using Vimfolds, it makes it a lot easier to understand

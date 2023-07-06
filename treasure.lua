@@ -71,6 +71,12 @@ function Treasure.spawnTreasure(player)
                        o = math.random(0, 6.28)
         player:SendBroadcastMessage("Treasure!")
         print("Treasure!")
+        if x or y or z or o == nil then
+            if not x then print("Treasure: Error getting x for spawn position") end
+            if not y then print("Treasure: Error getting y for spawn position") end
+            if not z then print("Treasure: Error getting z for spawn position") end
+            if not o then print("Treasure: Error getting o for spawn position") end
+        end
         local chest = player:SummonGameObject(chestID, x, y, z, o, 0)
     end
 end
